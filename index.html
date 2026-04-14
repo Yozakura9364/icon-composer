@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图层组合器</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --panel: #1a1d27;
+  --card: #252836;
+  --card2: #1e2130;
+  --accent: #f59e0b;
+  --accent2: #6366f1;
+  --text: #e8eaf0;
+  --text-dim: #7a8194;
+  --border: #2d3147;
+  --portrait: #10b981;
+  --nameplate: #3b82f6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  height: 100%; overflow: hidden;
+}
+body { display: flex; flex-direction: column; }
+
+/* === 头部 === */
+header {
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  padding: 8px 16px; display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+}
+header h1 { font-size: 15px; font-weight: 700; }
+header .subtitle { font-size: 11px; color: var(--text-dim); }
+.tabs { display: flex; gap: 4px; margin-left: auto; }
+.tab-btn {
+  padding: 5px 14px; border-radius: 5px; font-size: 12px; font-weight: 500;
+  cursor: pointer; border: 1px solid var(--border); background: transparent;
+  color: var(--text-dim); transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--text); border-color: var(--text-dim); }
+.tab-btn.active { background: var(--accent); border-color: var(--accent); color: #111; }
+
+/* === 主布局 === */
+.main { display: flex; flex: 1; overflow: hidden; }
+
+/* === 画布区 === */
+.canvas-area {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 12px; gap: 10px; overflow: hidden;
+  background: #0a0c12;
+}
+.canvas-viewport {
+  flex: 1; overflow: hidden; position: relative;
+  width: 100%; cursor: grab;
+  display: flex; align-items: center; justify-content: center;
+}
+.canvas-viewport.dragging { cursor: grabbing; }
+.canvas-container { position: relative; flex-shrink: 0; }
+.canvas-container canvas { display: block; image-rendering: auto; }
+canvas { image-rendering: auto; }
+
+/* === 画布控制条 === */
+.canvas-controls {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; justify-content: center; flex-shrink: 0;
+}
+.zoom-ctrl { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.zoom-ctrl button {
+  width: 24px; height: 24px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; transition: background 0.12s;
+}
+.zoom-ctrl button:hover { background: var(--card2); }
+.zoom-ctrl select {
+  background: var(--card); color: var(--text); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 8px; font-size: 12px; cursor: pointer;
+}
+.btn {
+  padding: 6px 16px; border-radius: 5px; font-size: 12px; font-weight: 500;
+  cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s;
+}
+.btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary { background: var(--accent); color: #111; }
+.btn-secondary { background: var(--accent2); color: #fff; }
+.btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); }
+#statusBar { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+
+/* === 右侧配置面板 === */
+.config-panel {
+  width: 280px; min-width: 240px; background: var(--panel);
+  border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;
+}
+.panel-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.panel-tab {
+  flex: 1; padding: 9px 6px; font-size: 11px; font-weight: 600;
+  cursor: pointer; border: none; background: transparent;
+  color: var(--text-dim); border-bottom: 2px solid transparent;
+  transition: all 0.15s; text-align: center;
+}
+.panel-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.panel-tab.portrait-tab.active { border-bottom-color: var(--portrait); }
+.panel-tab.nameplate-tab.active { border-bottom-color: var(--nameplate); }
+
+.panel-scroll { flex: 1; overflow-y: auto; padding: 8px 10px; }
+.panel-scroll::-webkit-scrollbar { width: 3px; }
+.panel-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* 肖像位置切换 */
+.side-toggle {
+  background: var(--card2); border-radius: 6px; padding: 9px 10px; margin-bottom: 10px;
+}
+.side-toggle .st-label { font-size: 10px; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+.st-options { display: flex; gap: 5px; }
+.st-btn {
+  flex: 1; padding: 5px 6px; border-radius: 4px; font-size: 12px;
+  cursor: pointer; border: 1px solid var(--border); background: transparent;
+  color: var(--text-dim); text-align: center; transition: all 0.15s;
+}
+.st-btn:hover { border-color: var(--text-dim); color: var(--text); }
+.st-btn.active { background: var(--portrait); border-color: var(--portrait); color: #fff; font-weight: 600; }
+
+/* 分类组标题 */
+.group-title {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text-dim);
+  margin: 10px 0 5px;
+  display: flex; align-items: center; gap: 5px;
+}
+.group-title .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.group-title.portrait .dot { background: var(--portrait); }
+.group-title.nameplate .dot { background: var(--nameplate); }
+
+/* 分类区块 */
+.layer-section { background: var(--card2); border-radius: 5px; margin-bottom: 5px; overflow: hidden; }
+.section-header {
+  padding: 7px 9px; display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none; font-size: 12px; font-weight: 500;
+  transition: background 0.12s;
+}
+.section-header:hover { background: rgba(255,255,255,0.03); }
+.sname { display: flex; align-items: center; gap: 5px; }
+.check-dot {
+  width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--border);
+  transition: background 0.2s, border-color 0.2s; flex-shrink: 0;
+}
+.check-dot.checked { background: var(--accent); border-color: var(--accent); }
+.section-right { display: flex; align-items: center; gap: 5px; }
+.coord-tag {
+  font-size: 10px; color: var(--text-dim);
+  background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px;
+}
+.arrow { font-size: 8px; color: var(--text-dim); transition: transform 0.2s; }
+.layer-section.open .arrow { transform: rotate(90deg); }
+.section-body { display: none; padding: 5px 7px 7px; }
+.layer-section.open .section-body { display: block; }
+
+/* 缩略图 */
+.thumb-row {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  max-height: 110px; overflow-y: auto;
+}
+.thumb-row::-webkit-scrollbar { width: 2px; }
+.thumb-row::-webkit-scrollbar-thumb { background: var(--border); }
+.thumb-item {
+  width: 52px; height: 52px; border-radius: 4px; border: 2px solid transparent;
+  cursor: pointer; overflow: hidden; background: rgba(255,255,255,0.03);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; flex-shrink: 0;
+  transition: border-color 0.1s, transform 0.1s;
+}
+.thumb-item:hover { border-color: rgba(255,255,255,0.25); transform: scale(1.06); }
+.thumb-item.selected { border-color: var(--accent); }
+.thumb-item img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.thumb-item .tnum {
+  position: absolute; bottom: 0; left: 0; right: 0; font-size: 8px;
+  color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.55);
+  text-align: center; padding: 1px 0; pointer-events: none;
+}
+.no-imgs { font-size: 11px; color: var(--text-dim); padding: 3px 0; }
+
+/* 导出栏 */
+.export-bar {
+  border-top: 1px solid var(--border); padding: 8px 10px;
+  display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap;
+}
+.export-bar .btn { flex: 1; min-width: 70px; text-align: center; }
+
+/* Loading */
+.loading-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 14px; z-index: 999; font-size: 14px;
+}
+.spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-overlay.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div>正在扫描素材文件…</div>
+</div>
+
+<header>
+  <h1>图层组合器</h1>
+  <div class="subtitle">肖像 + 铭牌 · 双画布合成</div>
+  <div class="tabs">
+    <button class="tab-btn active" id="tabFull" onclick="switchTab('full')">完整预览</button>
+    <button class="tab-btn" id="tabPortrait" onclick="switchTab('portrait')">肖像画布</button>
+  </div>
+  <button class="btn btn-ghost" id="settingsBtn" onclick="openSettings()" title="设置" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:16px;padding:4px 8px;">⚙</button>
+</header>
+
+<div class="main">
+  <!-- 画布区 -->
+  <div class="canvas-area">
+    <div class="canvas-viewport" id="canvasViewport">
+      <div class="canvas-container" id="canvasContainer">
+        <canvas id="mainCanvas"></canvas>
+      </div>
+    </div>
+    <div class="canvas-controls">
+      <div class="zoom-ctrl">
+        <button onclick="zoom(-1)">−</button>
+        <select id="zoomSelect" onchange="setZoom(this.value)">
+          <option value="0.05">5%</option>
+          <option value="0.1">10%</option>
+          <option value="0.2" selected>20%</option>
+          <option value="0.3">30%</option>
+          <option value="0.5">50%</option>
+          <option value="1">100%</option>
+        </select>
+        <button onclick="zoom(1)">+</button>
+        <button onclick="resetView()" title="重置视图" style="font-size:11px;width:auto;padding:0 6px;">⊙</button>
+      </div>
+      <button class="btn btn-primary" onclick="exportCanvas()">导出 PNG</button>
+      <button class="btn btn-secondary" onclick="exportCanvas4x()">导出 4×</button>
+      <button class="btn btn-secondary" onclick="exportPSDJSX()" style="background:#f59e0b;">导出PSD(JSX)</button>
+      <button class="btn btn-ghost" onclick="clearAll()">清空</button>
+    </div>
+    <div id="statusBar">已选 0 层</div>
+  </div>
+
+  <!-- 右侧配置面板 -->
+  <div class="config-panel">
+    <div class="panel-tabs" style="padding:0 10px;">
+      <button class="panel-tab portrait-tab active" id="pTabPortrait" onclick="switchPanelTab('portrait')">肖像</button>
+      <button class="panel-tab nameplate-tab" id="pTabNameplate" onclick="switchPanelTab('nameplate')">铭牌</button>
+    </div>
+
+    <div class="panel-scroll" id="panelScroll">
+      <!-- 肖像配置 -->
+      <div id="portraitPanel">
+        <div class="side-toggle">
+          <div class="st-label">肖像位置</div>
+          <div class="st-options">
+            <div class="st-btn" id="sideLeft" onclick="setPortraitSide('left')">左侧</div>
+            <div class="st-btn active" id="sideRight" onclick="setPortraitSide('right')">右侧</div>
+          </div>
+        </div>
+        <div class="group-title portrait"><div class="dot"></div>肖像图层（512×840）</div>
+        <div id="portraitSections"></div>
+      </div>
+
+      <!-- 铭牌配置 -->
+      <div id="nameplatePanel" style="display:none;">
+        <div class="group-title nameplate"><div class="dot"></div>铭牌图层（2560×1440）</div>
+        <div id="nameplateSections"></div>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 常量定义
+// ============================================================
+const CANVAS_FULL     = { w: 2560, h: 1440 };
+const CANVAS_PORTRAIT = { w: 512,  h: 840  };
+
+// 肖像画布内部图层（3层，由下到上）
+const PORTRAIT_CATS = ['肖像背景', '肖像装饰框', '肖像装饰物'];
+
+// 铭牌画布图层（由下到上）
+const NAMEPLATE_CATS = [
+  '铭牌背衬',
+  '铭牌底色',
+  '铭牌花纹',
+  '铭牌外框',
+  '铭牌顶部装饰',
+  '铭牌底部装饰',
+  '铭牌装饰物',
+  '铭牌装饰物B',
+];
+
+// ============================================================
+// 坐标定义（铭牌画布坐标系）
+// ============================================================
+const LAYER_COORDS = {
+  // --- 肖像画布内（512×840）---
+  '肖像背景':   { canvas: 'portrait',  x: 0,   y: 0,   layer: 1 },
+  '肖像装饰框': { canvas: 'portrait',  x: 0,   y: 0,   layer: 2 },
+  '肖像装饰物': { canvas: 'portrait',  x: 0,   y: 0,   layer: 3 },
+  // --- 铭牌画布内（2560×1440）---
+  '铭牌背衬':   { canvas: 'nameplate', x: 0,   y: 0,   layer: 1 },
+  '铭牌底色':   { canvas: 'nameplate', x: 540, y: 300, layer: 2 },
+  '铭牌花纹':   { canvas: 'nameplate', x: 540, y: 300, layer: 3 },
+  '铭牌外框':   { canvas: 'nameplate', x: 320, y: 172, layer: 5 },
+  '铭牌顶部装饰': { canvas: 'nameplate', x: 320, y: 172, layer: 7 },
+  '铭牌底部装饰': { canvas: 'nameplate', x: 320, y: 956, layer: 8 },
+  '铭牌装饰物': { canvas: 'nameplate', x: 1700, y: 763, layer: 9 },
+  '铭牌装饰物B': { canvas: 'nameplate', x: 1764, y: 824, layer: 10, scale: 0.75 },
+};
+
+// 肖像画布嵌入铭牌画布的坐标
+const PORTRAIT_EMBED = {
+  right: { x: 1444, y: 300 },
+  left:  { x: 604,  y: 300 },
+};
+
+// 肖像外框（197）在铭牌画布的坐标
+const PORTRAIT_FRAME_ON_NAMEPLATE = {
+  right: { x: 1260, y: 0 },
+  left:  { x: 420,  y: 0 },
+};
+
+// ============================================================
+// 状态
+// ============================================================
+let fileData = { portrait: {}, nameplate: {} };
+let selected = {};         // { 分类名: {id,file,path} | null }
+let portraitSide = 'right';
+let activeTab = 'full';    // 'full' | 'portrait'
+let activePanel = 'portrait';
+let imgCache = {};         // path -> HTMLImageElement
+let zoomLevel = 0.2;
+
+// 拖拽状态
+let isDragging = false;
+let dragStartX = 0, dragStartY = 0;
+let currentOffsetX = 0, currentOffsetY = 0;
+let viewportCenterX = 0, viewportCenterY = 0;
+
+// ============================================================
+// 初始化
+// ============================================================
+async function init() {
+  try {
+    const resp = await fetch('/api/files');
+    fileData = await resp.json();
+  } catch(e) {
+    alert('无法连接服务器！请先运行：node server.js\n\n' + e);
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    return;
+  }
+  [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => { selected[c] = null; });
+  renderAll();
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+// ============================================================
+// 渲染
+// ============================================================
+async function renderAll() {
+  renderPortraitSections();
+  renderNameplateSections();
+  await render();
+  centerView();
+}
+
+function renderPortraitSections() {
+  const container = document.getElementById('portraitSections');
+  container.innerHTML = '';
+  PORTRAIT_CATS.forEach(cat => {
+    const files = fileData.portrait[cat] || [];
+    container.appendChild(buildSection(cat, files));
+  });
+}
+
+function renderNameplateSections() {
+  const container = document.getElementById('nameplateSections');
+  container.innerHTML = '';
+  // 铭牌内的分类
+  const npCats = [...NAMEPLATE_CATS, '肖像外框'];
+  npCats.forEach(cat => {
+    const files = fileData.nameplate[cat] || [];
+    container.appendChild(buildSection(cat, files));
+  });
+}
+
+function buildSection(cat, files) {
+  const sel = selected[cat];
+  const coord = LAYER_COORDS[cat];
+  const posStr = coord ? `(${coord.x}, ${coord.y})` : '';
+
+  const section = document.createElement('div');
+  section.className = 'layer-section' + (files.length > 0 ? ' open' : '');
+  section.id = 'sec-' + cat;
+  section.innerHTML = `
+    <div class="section-header" onclick="toggleSection('${cat}')">
+      <div class="sname">
+        <div class="check-dot ${sel ? 'checked' : ''}" id="chk-${cat}"></div>
+        <span>${cat}</span>
+      </div>
+      <div class="section-right">
+        ${posStr ? `<span class="coord-tag">${posStr}</span>` : ''}
+        ${files.length > 0 ? `<span class="coord-tag">${files.length}</span>` : ''}
+        <span class="arrow">&#9654;</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="thumb-row" id="row-${cat}">
+        ${files.length === 0 ? '<div class="no-imgs">暂无素材</div>' : ''}
+      </div>
+    </div>
+  `;
+
+  const row = section.querySelector(`[id="row-${cat}"]`);
+  files.forEach(item => {
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb-item' + (sel && sel.id === item.id ? ' selected' : '');
+    thumb.title = item.name || item.file;
+    thumb.innerHTML = `
+      <img src="/img/${item.path}" alt="${item.name || item.id}" loading="lazy">
+      <div class="tnum">${item.name || item.id}</div>
+    `;
+    thumb.onclick = () => pickItem(cat, item);
+    row.appendChild(thumb);
+  });
+  return section;
+}
+
+function toggleSection(cat) {
+  const el = document.getElementById('sec-' + cat);
+  if (el) el.classList.toggle('open');
+}
+
+async function pickItem(cat, item) {
+  const wasSelected = selected[cat] && selected[cat].id === item.id;
+  
+  // 先清除该分类下所有缩略图的高亮
+  const row = document.getElementById('row-' + cat);
+  if (row) {
+    row.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('selected'));
+  }
+  
+  if (wasSelected) {
+    // 点击已选中的 → 取消选择
+    selected[cat] = null;
+  } else {
+    // 选中新的
+    selected[cat] = item;
+    if (row) {
+      row.querySelectorAll('.thumb-item').forEach(t => {
+        const tnum = t.querySelector('.tnum');
+        if (tnum && tnum.textContent === item.id) t.classList.add('selected');
+      });
+    }
+  }
+  
+  const chk = document.getElementById('chk-' + cat);
+  if (chk) chk.className = 'check-indicator' + (selected[cat] ? ' checked' : '');
+  
+  await render();
+}
+
+function setPortraitSide(side) {
+  portraitSide = side;
+  document.getElementById('sideLeft').classList.toggle('active', side === 'left');
+  document.getElementById('sideRight').classList.toggle('active', side === 'right');
+  render();
+}
+
+async function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tabFull').classList.toggle('active', tab === 'full');
+  document.getElementById('tabPortrait').classList.toggle('active', tab === 'portrait');
+  await render();
+  centerView();
+}
+
+function switchPanelTab(panel) {
+  activePanel = panel;
+  document.getElementById('pTabPortrait').classList.toggle('active', panel === 'portrait');
+  document.getElementById('pTabNameplate').classList.toggle('active', panel === 'nameplate');
+  document.getElementById('portraitPanel').style.display  = panel === 'portrait'  ? '' : 'none';
+  document.getElementById('nameplatePanel').style.display = panel === 'nameplate' ? '' : 'none';
+}
+
+async function clearAll() {
+  [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => { selected[c] = null; });
+  await renderAll();
+}
+
+// ============================================================
+// 画布渲染
+// ============================================================
+async function render() {
+  if (activeTab === 'portrait') {
+    await renderPortraitOnly();
+  } else {
+    await renderFull();
+  }
+  updateStatus();
+}
+
+function updateStatus() {
+  const count = Object.values(selected).filter(v => v !== null).length;
+  document.getElementById('statusBar').textContent = `已选 ${count} 层`;
+}
+
+// 渲染「肖像画布」标签页（只看 512×840）
+async function renderPortraitOnly() {
+  const canvas = document.getElementById('mainCanvas');
+  canvas.width  = CANVAS_PORTRAIT.w;
+  canvas.height = CANVAS_PORTRAIT.h;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, CANVAS_PORTRAIT.w, CANVAS_PORTRAIT.h);
+  ctx.imageSmoothingEnabled = false;
+
+  for (const cat of PORTRAIT_CATS) {
+    const item = selected[cat];
+    if (!item) continue;
+    await drawImgFull(ctx, item.path);
+  }
+}
+
+// 渲染「完整预览」标签页（2560×1440）
+async function renderFull() {
+  const canvas = document.getElementById('mainCanvas');
+  canvas.width  = CANVAS_FULL.w;
+  canvas.height = CANVAS_FULL.h;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, CANVAS_FULL.w, CANVAS_FULL.h);
+  ctx.imageSmoothingEnabled = false;
+
+  // --- 1. 铭牌背景层 ---
+  await drawLayer(ctx, '铭牌背衬');
+  await drawLayer(ctx, '铭牌底色');
+  await drawLayer(ctx, '铭牌花纹');
+
+  // --- 2. 肖像画布嵌入铭牌（右侧或左侧） ---
+  const embedPos = PORTRAIT_EMBED[portraitSide];
+  await drawPortraitOnCtx(ctx, embedPos.x, embedPos.y);
+
+  // --- 3. 铭牌外框 ---
+  await drawLayer(ctx, '铭牌外框');
+
+  // --- 4. 肖像外框（197），按左右侧放置在铭牌画布上 ---
+  await drawPortraitFrameOnNameplate(ctx);
+
+  // --- 5. 铭牌装饰层 ---
+  await drawLayer(ctx, '铭牌顶部装饰');
+  await drawLayer(ctx, '铭牌底部装饰');
+  await drawLayer(ctx, '铭牌装饰物');
+  await drawLayer(ctx, '铭牌装饰物B');
+}
+
+// 在指定 ctx 的 (px, py) 位置绘制肖像画布
+async function drawPortraitOnCtx(ctx, px, py) {
+  const pc = document.createElement('canvas');
+  pc.width = CANVAS_PORTRAIT.w; pc.height = CANVAS_PORTRAIT.h;
+  const pctx = pc.getContext('2d');
+  pctx.imageSmoothingEnabled = false;
+
+  for (const cat of PORTRAIT_CATS) {
+    const item = selected[cat];
+    if (!item) continue;
+    await drawImgFull(pctx, item.path);
+  }
+
+  ctx.drawImage(pc, px, py);
+}
+
+// 肖像外框（197）绘制到铭牌画布
+async function drawPortraitFrameOnNameplate(ctx) {
+  const item = selected['肖像外框'];
+  if (!item) return;
+  const pos = PORTRAIT_FRAME_ON_NAMEPLATE[portraitSide];
+  await drawImgFullAt(ctx, item.path, pos.x, pos.y);
+}
+
+// ============================================================
+// 绘图工具（直接绘制原始尺寸，不缩放）
+// ============================================================
+async function drawLayer(ctx, cat) {
+  const item = selected[cat];
+  if (!item) return;
+  const c = LAYER_COORDS[cat];
+  if (c.scale !== undefined) {
+    await drawImgScaled(ctx, item.path, c.x, c.y, c.scale);
+  } else {
+    await drawImgFullAt(ctx, item.path, c.x, c.y);
+  }
+}
+
+// 在 ctx 的 (px, py) 位置以原始尺寸绘制图片
+async function drawImgFullAt(ctx, imgPath, px, py) {
+  const img = await loadImg(imgPath);
+  if (!img) return;
+  ctx.drawImage(img, px, py);
+}
+
+// 以 scale 比例缩放绘制图片
+async function drawImgScaled(ctx, imgPath, px, py, scale) {
+  const img = await loadImg(imgPath);
+  if (!img) return;
+  const sw = Math.round(img.naturalWidth * scale);
+  const sh = Math.round(img.naturalHeight * scale);
+  ctx.drawImage(img, px, py, sw, sh);
+}
+
+// 在 ctx 中心位置以原始尺寸绘制（用于画布自身内居中）
+async function drawImgFull(ctx, imgPath) {
+  const img = await loadImg(imgPath);
+  if (!img) return;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const dx = iw <= ctx.canvas.width  ? (ctx.canvas.width  - iw) / 2 : 0;
+  const dy = ih <= ctx.canvas.height ? (ctx.canvas.height - ih) / 2 : 0;
+  ctx.drawImage(img, dx, dy);
+}
+
+function loadImg(imgPath) {
+  return new Promise(resolve => {
+    if (imgCache[imgPath]) { resolve(imgCache[imgPath]); return; }
+    const img = new Image();
+    img.onload = () => { imgCache[imgPath] = img; resolve(img); };
+    img.onerror = () => resolve(null);
+    img.src = '/img/' + imgPath;
+  });
+}
+
+// ============================================================
+// 画布变换（缩放 + 拖拽）
+// ============================================================
+function applyTransform() {
+  const container = document.getElementById('canvasContainer');
+  const canvas   = document.getElementById('mainCanvas');
+  const vp       = document.getElementById('canvasViewport');
+  const vw = vp.clientWidth, vh = vp.clientHeight;
+  const cw = canvas.width, ch = canvas.height;
+
+  // 容器保持画布物理像素
+  container.style.width  = cw + 'px';
+  container.style.height = ch + 'px';
+
+  // scale(zoom) 变换：以画布左上角为原点
+  const dx = vw > cw ? (vw - cw) / 2 : currentOffsetX;
+  const dy = vh > ch ? (vh - ch) / 2 : currentOffsetY;
+  container.style.transform = `scale(${zoomLevel})`;
+  container.style.transformOrigin = '0 0';
+  container.style.position = 'absolute';
+  container.style.left = Math.round(dx) + 'px';
+  container.style.top  = Math.round(dy) + 'px';
+}
+
+function setZoom(val) {
+  zoomLevel = parseFloat(val);
+  applyTransform();
+  document.getElementById('zoomSelect').value = val;
+}
+
+function zoom(dir) {
+  const steps = [0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 1.0];
+  const cur = zoomLevel;
+  let idx = steps.findIndex(s => s >= cur);
+  if (idx < 0) idx = 3;
+  idx = Math.max(0, Math.min(steps.length - 1, idx + dir));
+  setZoom(steps[idx]);
+}
+
+function centerView() {
+  currentOffsetX = 0; currentOffsetY = 0;
+  applyTransform();
+}
+
+function resetView() {
+  zoomLevel = 0.2;
+  document.getElementById('zoomSelect').value = '0.2';
+  centerView();
+}
+
+// 拖拽
+const viewport = document.getElementById('canvasViewport');
+viewport.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  isDragging = true;
+  dragStartX = e.clientX - currentOffsetX;
+  dragStartY = e.clientY - currentOffsetY;
+  viewport.classList.add('dragging');
+  e.preventDefault();
+});
+document.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  currentOffsetX = e.clientX - dragStartX;
+  currentOffsetY = e.clientY - dragStartY;
+  applyTransform();
+});
+document.addEventListener('mouseup', () => {
+  if (isDragging) { isDragging = false; viewport.classList.remove('dragging'); }
+});
+viewport.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoom(e.deltaY > 0 ? -1 : 1);
+}, { passive: false });
+window.addEventListener('resize', () => applyTransform());
+
+// ============================================================
+// 导出
+// ============================================================
+function exportCanvas() {
+  const canvas = document.getElementById('mainCanvas');
+  triggerDownload(canvas, '_' + canvas.width + 'x' + canvas.height + '.png');
+}
+
+async function exportCanvas4x() {
+  const targetW = CANVAS_FULL.w * 4;
+  const targetH = CANVAS_FULL.h * 4;
+  const oc = document.createElement('canvas');
+  oc.width = targetW; oc.height = targetH;
+  const ctx = oc.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  // 绘制完整合成
+  // 1. 铭牌基础
+  await drawLayerScale(ctx, '铭牌背衬', targetW / CANVAS_FULL.w);
+  await drawLayerScale(ctx, '铭牌底色', targetW / CANVAS_FULL.w);
+  await drawLayerScale(ctx, '铭牌花纹', targetW / CANVAS_FULL.w);
+
+  // 2. 肖像画布嵌入
+  const embedPos = PORTRAIT_EMBED[portraitSide];
+  const s = targetW / CANVAS_FULL.w;
+  await drawPortraitOnCtxScale(ctx, embedPos.x * s, embedPos.y * s, s);
+
+  // 3. 铭牌外框
+  await drawLayerScale(ctx, '铭牌外框', s);
+
+  // 4. 肖像外框
+  await drawPortraitFrameOnNameplateScale(ctx, s);
+
+  // 5. 装饰层
+  await drawLayerScale(ctx, '铭牌顶部装饰', s);
+  await drawLayerScale(ctx, '铭牌底部装饰', s);
+  await drawLayerScale(ctx, '铭牌装饰物', s);
+
+  triggerDownload(oc, '_4x.png');
+}
+
+// 4x 导出时缩放绘制
+async function drawLayerScale(ctx, cat, scale) {
+  const item = selected[cat];
+  if (!item) return;
+  const c = LAYER_COORDS[cat];
+  const img = await loadImg(item.path);
+  if (!img) return;
+  const px = c.x * scale, py = c.y * scale;
+  const pw = img.naturalWidth * scale, ph = img.naturalHeight * scale;
+  ctx.drawImage(img, px, py, pw, ph);
+}
+
+async function drawPortraitOnCtxScale(ctx, px, py, scale) {
+  const pc = document.createElement('canvas');
+  pc.width = CANVAS_PORTRAIT.w; pc.height = CANVAS_PORTRAIT.h;
+  const pctx = pc.getContext('2d');
+  pctx.imageSmoothingEnabled = false;
+  for (const cat of PORTRAIT_CATS) {
+    const item = selected[cat];
+    if (!item) continue;
+    await drawImgFull(pctx, item.path);
+  }
+  const pw = CANVAS_PORTRAIT.w * scale, ph = CANVAS_PORTRAIT.h * scale;
+  ctx.drawImage(pc, px, py, pw, ph);
+}
+
+async function drawPortraitFrameOnNameplateScale(ctx, scale) {
+  const item = selected['肖像外框'];
+  if (!item) return;
+  const pos = PORTRAIT_FRAME_ON_NAMEPLATE[portraitSide];
+  const img = await loadImg(item.path);
+  if (!img) return;
+  ctx.drawImage(img, pos.x * scale, pos.y * scale, img.naturalWidth * scale, img.naturalHeight * scale);
+}
+
+function triggerDownload(canvas, suffix) {
+  const link = document.createElement('a');
+  link.download = 'composite_' + Date.now() + suffix;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+// ============================================================
+// PSD 导出用的完整合成
+// ============================================================
+async function buildFullComposite(ctx) {
+  // 1. 铭牌基础
+  await drawLayer(ctx, '铭牌背衬');
+  await drawLayer(ctx, '铭牌底色');
+  await drawLayer(ctx, '铭牌花纹');
+
+  // 2. 肖像画布嵌入
+  const embedPos = PORTRAIT_EMBED[portraitSide];
+  await drawPortraitOnCtx(ctx, embedPos.x, embedPos.y);
+
+  // 3. 铭牌外框
+  await drawLayer(ctx, '铭牌外框');
+
+  // 4. 肖像外框
+  await drawPortraitFrameOnNameplate(ctx);
+
+  // 5. 装饰层
+  await drawLayer(ctx, '铭牌顶部装饰');
+  await drawLayer(ctx, '铭牌底部装饰');
+  await drawLayer(ctx, '铭牌装饰物');
+}
+
+function ensureLoaded(imgPath) {
+  if (imgCache[imgPath]) return Promise.resolve();
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => { imgCache[imgPath] = img; resolve(); };
+    img.onerror = () => resolve();
+    img.src = '/img/' + imgPath;
+  });
+}
+
+// ========== 导出 PSD ==========
+async function exportPSD() {
+  const w = CANVAS_FULL.w;
+  const h = CANVAS_FULL.h;
+
+  // 收集所有图层，直接提取原始 RGBA
+  const layers = [];
+
+  // 肖像画布嵌入
+  const portraitCats = ['肖像背景', '肖像装饰框', '肖像装饰物'];
+  const pc = document.createElement('canvas');
+  pc.width = CANVAS_PORTRAIT.w; pc.height = CANVAS_PORTRAIT.h;
+  const pctx = pc.getContext('2d');
+  pctx.imageSmoothingEnabled = false;
+  for (const cat of portraitCats) {
+    const item = selected[cat];
+    if (!item) continue;
+    await ensureLoaded(item.path);
+    const img = imgCache[item.path];
+    if (!img) continue;
+    pctx.drawImage(img, 0, 0);
+  }
+  const portraitPos = portraitSide === 'right'
+    ? { x: 1444, y: 300 }
+    : { x: 604, y: 300 };
+  const pData = pctx.getImageData(0, 0, CANVAS_PORTRAIT.w, CANVAS_PORTRAIT.h).data;
+  layers.push({
+    name: '肖像组',
+    x: portraitPos.x,
+    y: portraitPos.y,
+    width: CANVAS_PORTRAIT.w,
+    height: CANVAS_PORTRAIT.h,
+    rgbaData: arrayBufferToBase64(pData.buffer)
+  });
+
+  // 铭牌各层
+  const nameplateLayerDefs = [
+    { cat: '铭牌背衬',     x: 0,    y: 0    },
+    { cat: '铭牌底色',     x: 540,  y: 300  },
+    { cat: '铭牌花纹',     x: 540,  y: 300  },
+    { cat: '铭牌外框',     x: 320,  y: 175  },
+    { cat: '肖像外框',     x: portraitSide === 'right' ? 1260 : 420, y: 0 },
+    { cat: '铭牌顶部装饰', x: 320,  y: 172  },
+    { cat: '铭牌底部装饰', x: 320,  y: 956  },
+    { cat: '铭牌装饰物',   x: 1700, y: 763  },
+  ];
+
+  for (const def of nameplateLayerDefs) {
+    const item = selected[def.cat];
+    if (!item) continue;
+    await ensureLoaded(item.path);
+    const img = imgCache[item.path];
+    if (!img) continue;
+
+    const lc = document.createElement('canvas');
+    lc.width = img.naturalWidth; lc.height = img.naturalHeight;
+    const lctx = lc.getContext('2d');
+    lctx.drawImage(img, 0, 0);
+    const lData = lctx.getImageData(0, 0, img.naturalWidth, img.naturalHeight).data;
+
+    layers.push({
+      name: def.cat,
+      x: def.x,
+      y: def.y,
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+      rgbaData: arrayBufferToBase64(lData.buffer)
+    });
+  }
+
+  if (layers.length === 0) {
+    alert('请先选择至少一个图层');
+    return;
+  }
+
+  const statusBar = document.getElementById('statusBar');
+  statusBar.textContent = '正在生成 PSD 文件…';
+
+  try {
+    const resp = await fetch('/api/export-psd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layers, canvasWidth: w, canvasHeight: h })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error('服务器错误: ' + (err.error || resp.status));
+    }
+
+    const blob = await resp.blob();
+    if (blob.size < 1000) throw new Error('PSD 文件过小：' + blob.size + ' 字节');
+    const link = document.createElement('a');
+    link.download = 'composite_' + Date.now() + '.psd';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (e) {
+    alert('PSD 导出失败：' + e.message);
+  } finally {
+    statusBar.textContent = '就绪';
+  }
+}
+
+// ========== 导出 PSD (JSX) ==========
+// 由 Photoshop 执行脚本生成 PSD，绕过二进制格式问题
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function exportPSDJSX() {
+  const w = CANVAS_FULL.w;
+  const h = CANVAS_FULL.h;
+
+  const layers = [];
+
+  // 调试：记录当前选中状态
+  const debugCats = ['肖像背景', '肖像装饰框', '肖像装饰物', '铭牌背衬', '铭牌底色', '铭牌花纹', '铭牌外框', '肖像外框', '铭牌顶部装饰', '铭牌底部装饰', '铭牌装饰物', '铭牌装饰物B'];
+  const debugSelected = debugCats.map(cat => cat + ':' + (selected[cat] ? selected[cat].name || selected[cat].path : 'null')).join(', ');
+  console.log('[exportPSDJSX] selected:', debugSelected);
+
+  // 肖像画布嵌入
+  const portraitCats = ['肖像背景', '肖像装饰框', '肖像装饰物'];
+  const pc = document.createElement('canvas');
+  pc.width = CANVAS_PORTRAIT.w; pc.height = CANVAS_PORTRAIT.h;
+  const pctx = pc.getContext('2d');
+  pctx.imageSmoothingEnabled = false;
+  for (const cat of portraitCats) {
+    const item = selected[cat];
+    console.log('[portrait]', cat, item ? 'selected' : 'null');
+    if (!item) continue;
+    await ensureLoaded(item.path);
+    const img = imgCache[item.path];
+    if (!img) { console.log('[portrait]', cat, 'not in imgCache'); continue; }
+    pctx.drawImage(img, 0, 0);
+    console.log('[portrait] drew', cat, img.naturalWidth + 'x' + img.naturalHeight);
+  }
+  const portraitPos = portraitSide === 'right'
+    ? { x: 1444, y: 300 }
+    : { x: 604, y: 300 };
+  const pBlob = await new Promise(resolve => pc.toBlob(resolve, 'image/png'));
+  console.log('[portrait] blob size:', pBlob ? pBlob.size : 'null');
+  layers.push({
+    name: '肖像组',
+    x: portraitPos.x,
+    y: portraitPos.y,
+    width: CANVAS_PORTRAIT.w,
+    height: CANVAS_PORTRAIT.h,
+    rgbaData: await blobToBase64(pBlob)
+  });
+
+  // 铭牌各层
+  const nameplateLayerDefs = [
+    { cat: '铭牌背衬',     x: 0,    y: 0    },
+    { cat: '铭牌底色',     x: 540,  y: 300  },
+    { cat: '铭牌花纹',     x: 540,  y: 300  },
+    { cat: '铭牌外框',     x: 320,  y: 175  },
+    { cat: '肖像外框',     x: portraitSide === 'right' ? 1260 : 420, y: 0 },
+    { cat: '铭牌顶部装饰', x: 320,  y: 172  },
+    { cat: '铭牌底部装饰', x: 320,  y: 956  },
+    { cat: '铭牌装饰物',   x: 1700, y: 763  },
+    { cat: '铭牌装饰物B',  x: 1764, y: 824  },
+  ];
+
+  for (const def of nameplateLayerDefs) {
+    const item = selected[def.cat];
+    if (!item) continue;
+    await ensureLoaded(item.path);
+    const img = imgCache[item.path];
+    if (!img) { console.log('[nameplate]', def.cat, 'not in imgCache'); continue; }
+
+    const c = LAYER_COORDS[def.cat];
+    const scale = c && c.scale !== undefined ? c.scale : 1;
+    const drawW = Math.round(img.naturalWidth * scale);
+    const drawH = Math.round(img.naturalHeight * scale);
+
+    const lc = document.createElement('canvas');
+    lc.width = drawW; lc.height = drawH;
+    const lctx = lc.getContext('2d');
+    lctx.imageSmoothingEnabled = false;
+    lctx.drawImage(img, 0, 0, drawW, drawH);
+    const lBlob = await new Promise(resolve => lc.toBlob(resolve, 'image/png'));
+    console.log('[nameplate] added', def.cat, drawW + 'x' + drawH);
+    layers.push({
+      name: def.cat,
+      x: def.x,
+      y: def.y,
+      width: drawW,
+      height: drawH,
+      rgbaData: await blobToBase64(lBlob)
+    });
+  }
+
+  if (layers.length === 0) {
+    alert('请先选择至少一个图层');
+    return;
+  }
+
+  console.log('[exportPSDJSX] Total layers:', layers.length, layers.map(l => l.name + '@' + l.width + 'x' + l.height).join(', '));
+
+  const statusBar = document.getElementById('statusBar');
+  statusBar.textContent = '正在生成 JSX 脚本…';
+
+  try {
+    const resp = await fetch('/api/export-psd-jsx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layers, canvasWidth: w, canvasHeight: h })
+    });
+
+    if (!resp.ok) throw new Error('服务器错误: ' + resp.status);
+
+    const blob = await resp.blob();
+    const link = document.createElement('a');
+    link.download = 'composite_' + Date.now() + '.jsx';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (e) {
+    alert('JSX 导出失败：' + e.message);
+  } finally {
+    statusBar.textContent = '就绪';
+  }
+}
+
+// 安全的 base64 编码（分块处理，避免栈溢出）
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const CHUNK = 8192;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK, bytes.length));
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  return btoa(binary);
+}
+
+
+// ============================================================
+// 启动
+// ============================================================
+init();
+</script>
+
+<!-- Settings Modal -->
+<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1e1e2e;padding:28px;border-radius:12px;min-width:360px;max-width:480px;color:#cdd6f4;font-family:sans-serif;">
+    <h2 style="margin:0 0 20px;font-size:18px;">⚙ 设置</h2>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:13px;color:#a6adc8;margin-bottom:6px;">素材文件夹</div>
+      <div id="settingsMaterials" style="font-size:12px;color:#89b4fa;word-break:break-all;margin-bottom:6px;padding:6px;background:#181825;border-radius:6px;">—</div>
+      <button class="btn btn-secondary" onclick="pickMaterials()" style="font-size:12px;padding:4px 12px;">更改素材文件夹</button>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13px;color:#a6adc8;margin-bottom:6px;">导出目录</div>
+      <div id="settingsExport" style="font-size:12px;color:#89b4fa;word-break:break-all;margin-bottom:6px;padding:6px;background:#181825;border-radius:6px;">—</div>
+      <button class="btn btn-secondary" onclick="pickExport()" style="font-size:12px;padding:4px 12px;">更改导出目录</button>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeSettings()" style="font-size:13px;padding:6px 16px;">关闭</button>
+      <button class="btn btn-primary" onclick="openExportDir()" style="font-size:13px;padding:6px 16px;">打开导出目录</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// === Electron / Settings ===
+async function loadSettings() {
+  if (typeof electronAPI !== 'undefined') {
+    const cfg = await electronAPI.getConfig();
+    document.getElementById('settingsMaterials').textContent = cfg.materialsPath || '未设置';
+    document.getElementById('settingsExport').textContent    = cfg.exportPath    || '未设置';
+  }
+}
+
+function openSettings() {
+  loadSettings();
+  document.getElementById('settingsModal').style.display = 'flex';
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+
+async function pickMaterials() {
+  if (typeof electronAPI === 'undefined') { alert('仅在打包版本中可用'); return; }
+  const res = await electronAPI.pickMaterials();
+  if (res.success) location.reload();
+}
+
+async function pickExport() {
+  if (typeof electronAPI === 'undefined') { alert('仅在打包版本中可用'); return; }
+  await electronAPI.pickExport();
+  loadSettings();
+}
+
+function openExportDir() {
+  if (typeof electronAPI !== 'undefined') electronAPI.openExport();
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSettings(); });
+
+// 网页版（非Electron）隐藏设置按钮
+if (typeof electronAPI === 'undefined') {
+  document.getElementById('settingsBtn').style.display = 'none';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+node_modules/
+out/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+*.local
+
+# 测试/临时文件
+test*.psd
+test*.jsx
+test*.js
+check*.js
+export_*.psd
+启动服务器.bat
+
+# 根目录旧文件
+package-lock.json
+
