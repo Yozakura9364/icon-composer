@@ -132,18 +132,18 @@ async function main() {
   }
   console.log(`  CharaCardDecoration: 194/195/197/198/199/234xxx → ${decCount} 条`);
 
-  // CharaCardHeader: col[1]=TopID, col[2]=BotID, col[12]=Name (key row共13列0-12)
+  // CharaCardHeader: col[1]=TopImage, col[2]=BottomImage, col[13]=Name
   const charaHeader = parseCsv(csvCache['CharaCardHeader.csv']);
   let hCount = 0;
   for (const row of charaHeader) {
     const topId = parseInt(row[1], 10);
     const botId = parseInt(row[2], 10);
-    const name = cleanName(row[12]);
+    const name = cleanName(row[13]);
     if (!name || name === '无') continue;
     if (topId >= 196002 && topId <= 196249) { idToName[topId] = name; hCount++; }
     if (botId >= 196252 && botId <= 196499) { idToName[botId] = name; hCount++; }
   }
-  console.log(`  CharaCardHeader: 196002~196499 → ${hCount} 条`);
+  console.log(`  CharaCardHeader: 196xxx → ${hCount} 条`);
 
   const outPath = path.join(__dirname, 'id-names.json');
   fs.writeFileSync(outPath, JSON.stringify(idToName, null, 2), 'utf8');

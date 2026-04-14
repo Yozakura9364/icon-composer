@@ -266,10 +266,12 @@ canvas { image-rendering: auto; }
           </div>
         </div>
         <div class="group-title portrait"><div class="dot"></div>肖像图层（512×840）</div>
-        <div style="padding:6px 10px;">
-          <select id="presetBanner" onchange="applyPreset('banner', this.value)" style="width:100%; padding:5px; border-radius:4px; border:1px solid #555; background:#2a2a2a; color:#ccc; font-size:13px;">
+        <div style="padding:6px 10px; display:flex; gap:4px; align-items:center; overflow:hidden;">
+          <button class="btn btn-ghost" onclick="prevPreset('banner')" title="上一个肖像预设" style="flex-shrink:0;">◀</button>
+          <select id="presetBanner" onchange="applyPreset('banner', this.value)" style="flex:1; min-width:0; padding:5px; border-radius:4px; border:1px solid #555; background:#2a2a2a; color:#ccc; font-size:13px;">
             <option value="">— 选择肖像预设 —</option>
           </select>
+          <button class="btn btn-ghost" onclick="nextPreset('banner')" title="下一个肖像预设" style="flex-shrink:0;">▶</button>
         </div>
         <div id="portraitSections"></div>
       </div>
@@ -277,10 +279,12 @@ canvas { image-rendering: auto; }
       <!-- 铭牌配置 -->
       <div id="nameplatePanel" style="display:none;">
         <div class="group-title nameplate"><div class="dot"></div>铭牌图层（2560×1440）</div>
-        <div style="padding:6px 10px;">
-          <select id="presetChar" onchange="applyPreset('charcard', this.value)" style="width:100%; padding:5px; border-radius:4px; border:1px solid #555; background:#2a2a2a; color:#ccc; font-size:13px;">
+        <div style="padding:6px 10px; display:flex; gap:4px; align-items:center; overflow:hidden;">
+          <button class="btn btn-ghost" onclick="prevPreset('charcard')" title="上一个铭牌预设" style="flex-shrink:0;">◀</button>
+          <select id="presetChar" onchange="applyPreset('charcard', this.value)" style="flex:1; min-width:0; padding:5px; border-radius:4px; border:1px solid #555; background:#2a2a2a; color:#ccc; font-size:13px;">
             <option value="">— 选择铭牌预设 —</option>
           </select>
+          <button class="btn btn-ghost" onclick="nextPreset('charcard')" title="下一个铭牌预设" style="flex-shrink:0;">▶</button>
         </div>
         <div id="nameplateSections"></div>
       </div>
@@ -409,33 +413,85 @@ async function applyPreset(type, name) {
   const preset = list.find(p => p.name === name);
   if (!preset) return;
 
-  // 清空所有选择
-  [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => {
-    selected[c] = null;
-    const el = document.getElementById('selected-' + c);
-    if (el) { el.src = ''; el.style.display = 'none'; }
-  });
-
-  // 应用预设
-  for (const layer of preset.layers) {
-    const cat = layer.cat;
-    const id = layer.id;
-    if (!id) continue;
-
-    const fd = fileData.portrait[cat] || fileData.nameplate[cat] || [];
-    const item = fd.find(f => f.id === id);
-    if (!item) { console.log('[preset] 未找到', cat, id); continue; }
-
-    await ensureLoaded(item.path);
-    selected[cat] = { id: item.id, file: item.file, path: item.path };
-    const el = document.getElementById('selected-' + cat);
-    if (el) {
-      el.src = item.path;
-      el.style.display = 'block';
+  if (type === 'charcard') {
+    // 先检查是否有同名肖像预设
+    const bannerPreset = presets.banner.find(p => p.name === name);
+    // 清空所有选择
+    [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => {
+      selected[c] = null;
+      const el = document.getElementById('selected-' + c);
+      if (el) { el.src = ''; el.style.display = 'none'; }
+    });
+    // 如果同名肖像预设存在，先加载肖像图层
+    if (bannerPreset) {
+      for (const layer of bannerPreset.layers) {
+        const cat = layer.cat;
+        const id = layer.id;
+        if (!id) continue;
+        const fd = fileData.portrait[cat] || {};
+        const item = fd.find ? fd.find(f => f.id === String(id)) : null;
+        if (!item) { console.log('[preset] 未找到', cat, id); continue; }
+        await ensureLoaded(item.path);
+        selected[cat] = { id: item.id, file: item.file, path: item.path };
+        const el = document.getElementById('selected-' + cat);
+        if (el) { el.src = item.path; el.style.display = 'block'; }
+      }
+    }
+    // 加载铭牌图层
+    for (const layer of preset.layers) {
+      const cat = layer.cat;
+      const id = layer.id;
+      if (!id) continue;
+      const fd = fileData.nameplate[cat] || {};
+      const item = fd.find ? fd.find(f => f.id === String(id)) : null;
+      if (!item) { console.log('[preset] 未找到', cat, id); continue; }
+      await ensureLoaded(item.path);
+      selected[cat] = { id: item.id, file: item.file, path: item.path };
+      const el = document.getElementById('selected-' + cat);
+      if (el) { el.src = item.path; el.style.display = 'block'; }
+    }
+  } else {
+    // 肖像预设：只清空和加载肖像图层，不动铭牌
+    [...PORTRAIT_CATS].forEach(c => {
+      selected[c] = null;
+      const el = document.getElementById('selected-' + c);
+      if (el) { el.src = ''; el.style.display = 'none'; }
+    });
+    for (const layer of preset.layers) {
+      const cat = layer.cat;
+      const id = layer.id;
+      if (!id) continue;
+      const fd = fileData.portrait[cat] || {};
+      const item = fd.find ? fd.find(f => f.id === String(id)) : null;
+      if (!item) { console.log('[preset] 未找到', cat, id); continue; }
+      await ensureLoaded(item.path);
+      selected[cat] = { id: item.id, file: item.file, path: item.path };
+      const el = document.getElementById('selected-' + cat);
+      if (el) { el.src = item.path; el.style.display = 'block'; }
     }
   }
 
   await render();
+}
+
+function prevPreset(type) {
+  const sel = document.getElementById(type === 'banner' ? 'presetBanner' : 'presetChar');
+  const opts = Array.from(sel.options).filter(o => o.value);
+  if (opts.length === 0) return;
+  const curIdx = opts.findIndex(o => o.value === sel.value);
+  const prevIdx = curIdx <= 0 ? opts.length - 1 : curIdx - 1;
+  sel.value = opts[prevIdx].value;
+  applyPreset(type, sel.value);
+}
+
+function nextPreset(type) {
+  const sel = document.getElementById(type === 'banner' ? 'presetBanner' : 'presetChar');
+  const opts = Array.from(sel.options).filter(o => o.value);
+  if (opts.length === 0) return;
+  const curIdx = opts.findIndex(o => o.value === sel.value);
+  const nextIdx = curIdx >= opts.length - 1 ? 0 : curIdx + 1;
+  sel.value = opts[nextIdx].value;
+  applyPreset(type, sel.value);
 }
 
 // ============================================================
