@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Icon Composer
 
 基于 Electron 的最终幻想 XIV 铭牌/肖像图层合成工具。
@@ -57,3 +58,6 @@ PSD 导出依赖本机安装的 **Adobe Photoshop**，导出时会调用 JSX 脚
 - Electron 35
 - Node.js HTTP 文件服务
 - Adobe Photoshop ExtendScript (PSD 图层导出)
+=======
+# icon-composer
+>>>>>>> 175878ae291ea2fc1954349ed906f27efb95aad9
