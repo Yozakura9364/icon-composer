@@ -1,0 +1,19 @@
+# Gitee Go 构建流水线
+# 自动构建并发布 Electron 应用
+gitee_cd_config:
+  product: yozakurayuy3/icon-composer   # 替换为你的 Gitee 用户名/仓库名
+  version: 1.0.0
+  entry: >-
+    npm install
+      && npm run build
+  cache:
+    enable: true
+    dirs:
+      - node_modules/
+  release:
+    enable: true
+    targets:
+      - type: external
+        name: IconComposer-${GITEE_BUILD_VERSION}
+        files:
+          - out/*.exe

@@ -266,12 +266,22 @@ canvas { image-rendering: auto; }
           </div>
         </div>
         <div class="group-title portrait"><div class="dot"></div>肖像图层（512×840）</div>
+        <div style="padding:6px 10px;">
+          <select id="presetBanner" onchange="applyPreset('banner', this.value)" style="width:100%; padding:5px; border-radius:4px; border:1px solid #555; background:#2a2a2a; color:#ccc; font-size:13px;">
+            <option value="">— 选择肖像预设 —</option>
+          </select>
+        </div>
         <div id="portraitSections"></div>
       </div>
 
       <!-- 铭牌配置 -->
       <div id="nameplatePanel" style="display:none;">
         <div class="group-title nameplate"><div class="dot"></div>铭牌图层（2560×1440）</div>
+        <div style="padding:6px 10px;">
+          <select id="presetChar" onchange="applyPreset('charcard', this.value)" style="width:100%; padding:5px; border-radius:4px; border:1px solid #555; background:#2a2a2a; color:#ccc; font-size:13px;">
+            <option value="">— 选择铭牌预设 —</option>
+          </select>
+        </div>
         <div id="nameplateSections"></div>
       </div>
     </div>
@@ -343,6 +353,7 @@ let activeTab = 'full';    // 'full' | 'portrait'
 let activePanel = 'portrait';
 let imgCache = {};         // path -> HTMLImageElement
 let zoomLevel = 0.2;
+let presets = { banner: [], charcard: [] };
 
 // 拖拽状态
 let isDragging = false;
@@ -355,16 +366,76 @@ let viewportCenterX = 0, viewportCenterY = 0;
 // ============================================================
 async function init() {
   try {
-    const resp = await fetch('/api/files');
-    fileData = await resp.json();
+    const [filesResp, presetsResp] = await Promise.all([
+      fetch('/api/files'),
+      fetch('/api/presets'),
+    ]);
+    fileData = await filesResp.json();
+    presets = await presetsResp.json();
   } catch(e) {
     alert('无法连接服务器！请先运行：node server.js\n\n' + e);
     document.getElementById('loadingOverlay').classList.add('hidden');
     return;
   }
   [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => { selected[c] = null; });
+  renderPresetSelects();
   renderAll();
   document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+function renderPresetSelects() {
+  const bannerSel = document.getElementById('presetBanner');
+  const charSel = document.getElementById('presetChar');
+
+  presets.banner.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name;
+    bannerSel.appendChild(opt);
+  });
+
+  presets.charcard.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name;
+    charSel.appendChild(opt);
+  });
+}
+
+async function applyPreset(type, name) {
+  if (!name) return;
+
+  const list = type === 'banner' ? presets.banner : presets.charcard;
+  const preset = list.find(p => p.name === name);
+  if (!preset) return;
+
+  // 清空所有选择
+  [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => {
+    selected[c] = null;
+    const el = document.getElementById('selected-' + c);
+    if (el) { el.src = ''; el.style.display = 'none'; }
+  });
+
+  // 应用预设
+  for (const layer of preset.layers) {
+    const cat = layer.cat;
+    const id = layer.id;
+    if (!id) continue;
+
+    const fd = fileData.portrait[cat] || fileData.nameplate[cat] || [];
+    const item = fd.find(f => f.id === id);
+    if (!item) { console.log('[preset] 未找到', cat, id); continue; }
+
+    await ensureLoaded(item.path);
+    selected[cat] = { id: item.id, file: item.file, path: item.path };
+    const el = document.getElementById('selected-' + cat);
+    if (el) {
+      el.src = item.path;
+      el.style.display = 'block';
+    }
+  }
+
+  await render();
 }
 
 // ============================================================
@@ -958,12 +1029,11 @@ async function exportPSDJSX() {
   const debugSelected = debugCats.map(cat => cat + ':' + (selected[cat] ? selected[cat].name || selected[cat].path : 'null')).join(', ');
   console.log('[exportPSDJSX] selected:', debugSelected);
 
-  // 肖像画布嵌入
+  // 肖像图层（独立层，合并到铭牌嵌入位置）
   const portraitCats = ['肖像背景', '肖像装饰框', '肖像装饰物'];
-  const pc = document.createElement('canvas');
-  pc.width = CANVAS_PORTRAIT.w; pc.height = CANVAS_PORTRAIT.h;
-  const pctx = pc.getContext('2d');
-  pctx.imageSmoothingEnabled = false;
+  const portraitPos = portraitSide === 'right'
+    ? { x: 1444, y: 300 }
+    : { x: 604, y: 300 };
   for (const cat of portraitCats) {
     const item = selected[cat];
     console.log('[portrait]', cat, item ? 'selected' : 'null');
@@ -971,22 +1041,22 @@ async function exportPSDJSX() {
     await ensureLoaded(item.path);
     const img = imgCache[item.path];
     if (!img) { console.log('[portrait]', cat, 'not in imgCache'); continue; }
-    pctx.drawImage(img, 0, 0);
-    console.log('[portrait] drew', cat, img.naturalWidth + 'x' + img.naturalHeight);
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0);
+    const blob = await new Promise(resolve => c.toBlob(resolve, 'image/png'));
+    console.log('[portrait] added', cat, img.naturalWidth + 'x' + img.naturalHeight);
+    layers.push({
+      name: cat,
+      x: portraitPos.x,
+      y: portraitPos.y,
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+      rgbaData: await blobToBase64(blob)
+    });
   }
-  const portraitPos = portraitSide === 'right'
-    ? { x: 1444, y: 300 }
-    : { x: 604, y: 300 };
-  const pBlob = await new Promise(resolve => pc.toBlob(resolve, 'image/png'));
-  console.log('[portrait] blob size:', pBlob ? pBlob.size : 'null');
-  layers.push({
-    name: '肖像组',
-    x: portraitPos.x,
-    y: portraitPos.y,
-    width: CANVAS_PORTRAIT.w,
-    height: CANVAS_PORTRAIT.h,
-    rgbaData: await blobToBase64(pBlob)
-  });
 
   // 铭牌各层
   const nameplateLayerDefs = [

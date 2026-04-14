@@ -24,6 +24,15 @@ try {
   console.log('未找到 id-names.json，跳过名称映射');
 }
 
+// 加载预设数据
+let presets = { banner: [], charcard: [] };
+try {
+  presets = JSON.parse(fs.readFileSync(path.join(__dirname, 'presets.json'), 'utf8'));
+  console.log('已加载 %d 个 Banner 预设, %d 个 CharaCard 预设', presets.banner.length, presets.charcard.length);
+} catch (e) {
+  console.log('未找到 presets.json，跳过预设');
+}
+
 // 图层分类
 const LAYER_CATEGORIES = [
   // === 肖像画布（512×840）===
@@ -116,6 +125,12 @@ const server = http.createServer((req, res) => {
     const data = scanFiles();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
+    return;
+  }
+
+  if (pathname === '/api/presets') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(presets));
     return;
   }
 
