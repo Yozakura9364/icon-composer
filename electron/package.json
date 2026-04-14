@@ -36,6 +36,7 @@
       "../../id-names.json"
     ],
     "extraResources": [],
-    "asar": true
+    "asar": false,
+    "winCodeSignIntegrity": false
   }
 }

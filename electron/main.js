@@ -48,11 +48,12 @@ function startServer(materialsPath, exportPath) {
     ? path.join(process.resourcesPath, 'app.asar', 'server.js')
     : path.join(__dirname, '..', 'server.js');
 
-  const args = [];
+  const args = [serverPath];
   if (materialsPath) args.push('--materials', materialsPath);
   if (exportPath)    args.push('--export', exportPath);
 
-  serverProcess = spawn(process.execPath, [serverPath, ...args], {
+  const nodeExe = process.execPath.replace(/[\\\/][^\\\/]+$/, '\\node.exe');
+  serverProcess = spawn(nodeExe, args, {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ICON_COMPOSER_PORT: String(serverPort) },
     detached: false,
