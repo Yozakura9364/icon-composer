@@ -246,7 +246,8 @@ function hasLocalIconFolders() {
 }
 
 function resolvePreviewImgMeta() {
-  const maxEdge = clampPreviewMaxEdge(process.env.ICON_COMPOSER_PREVIEW_MAX_EDGE || 640);
+  // 侧栏缩略图实际展示尺寸很小，默认 640 会让手机解码压力过高。
+  const maxEdge = clampPreviewMaxEdge(process.env.ICON_COMPOSER_PREVIEW_MAX_EDGE || 256);
   if (!hasLocalIconFolders()) return { maxEdge, base: null };
   return { maxEdge, base: `/img-preview/${maxEdge}` };
 }

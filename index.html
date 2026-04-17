@@ -1455,10 +1455,31 @@ function buildSection(cat, files) {
     thumb.className = 'thumb-item' + (sel && sel.id === item.id ? ' selected' : '');
     thumb.dataset.thumbId = String(item.id);
     thumb.title = item.name || item.file;
-    thumb.innerHTML = `
-      <img src="${iconImgSrcPreview(item.path)}" alt="${item.name || item.id}" loading="lazy" decoding="async" onerror="this.closest('.thumb-item')?.classList.add('thumb-missing')">
-      <div class="tnum">${item.name || item.id}</div>
-    `;
+
+    const img = document.createElement('img');
+    img.alt = item.name || item.id;
+    img.decoding = 'async';
+    // 手机上原生 lazy 在滚动容器里经常不触发，导致后半段缩略图空白。
+    img.loading = 'auto';
+    img.src = iconImgSrcPreview(item.path);
+    img.onerror = () => {
+      if (!img.dataset.fallbackTried) {
+        img.dataset.fallbackTried = '1';
+        img.src = iconImgSrcHd(item.path);
+        return;
+      }
+      thumb.classList.add('thumb-missing');
+    };
+    img.onload = () => {
+      thumb.classList.remove('thumb-missing');
+    };
+
+    const tnum = document.createElement('div');
+    tnum.className = 'tnum';
+    tnum.textContent = item.name || item.id;
+
+    thumb.appendChild(img);
+    thumb.appendChild(tnum);
     thumb.onclick = () => pickItem(cat, item);
     row.appendChild(thumb);
   });
