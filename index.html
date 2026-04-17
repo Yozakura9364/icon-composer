@@ -620,7 +620,7 @@ function renderPresetSelects() {
 }
 
 function isWebRuntime() {
-  return typeof electronAPI === 'undefined';
+  return true;
 }
 
 const THEME_KEY = 'iconComposerTheme';
@@ -2056,68 +2056,19 @@ init();
       <input type="file" id="composerConfigFileInput" accept="application/json,.json" style="display:none" aria-hidden="true">
     </div>
 
-    <div id="settingsElectronBlock">
-      <div style="margin-bottom:16px;">
-        <div style="font-size:13px;color:#a6adc8;margin-bottom:6px;">素材文件夹</div>
-        <div id="settingsMaterials" style="font-size:12px;color:#89b4fa;word-break:break-all;margin-bottom:6px;padding:6px;background:#181825;border-radius:6px;">—</div>
-        <button type="button" class="btn btn-secondary" onclick="pickMaterials()" style="font-size:12px;padding:4px 12px;">更改素材文件夹</button>
-      </div>
-      <div style="margin-bottom:20px;">
-        <div style="font-size:13px;color:#a6adc8;margin-bottom:6px;">导出目录</div>
-        <div id="settingsExport" style="font-size:12px;color:#89b4fa;word-break:break-all;margin-bottom:6px;padding:6px;background:#181825;border-radius:6px;">—</div>
-        <button type="button" class="btn btn-secondary" onclick="pickExport()" style="font-size:12px;padding:4px 12px;">更改导出目录</button>
-      </div>
-    </div>
-
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
       <button type="button" class="btn btn-ghost" onclick="closeSettings()" style="font-size:13px;padding:6px 16px;">关闭</button>
-      <button type="button" class="btn btn-primary" id="settingsOpenExportBtn" onclick="openExportDir()" style="font-size:13px;padding:6px 16px;">打开导出目录</button>
     </div>
   </div>
 </div>
 
 <script>
-// === Electron / Settings ===
-async function loadSettings() {
-  const elBlock = document.getElementById('settingsElectronBlock');
-  const openBtn = document.getElementById('settingsOpenExportBtn');
-  if (elBlock) elBlock.style.display = typeof electronAPI !== 'undefined' ? '' : 'none';
-  if (openBtn) openBtn.style.display = typeof electronAPI !== 'undefined' ? '' : 'none';
-  if (typeof electronAPI !== 'undefined') {
-    const cfg = await electronAPI.getConfig();
-    document.getElementById('settingsMaterials').textContent = cfg.materialsPath || '未设置';
-    document.getElementById('settingsExport').textContent    = cfg.exportPath    || '未设置';
-  } else {
-    const mat = document.getElementById('settingsMaterials');
-    const exp = document.getElementById('settingsExport');
-    if (mat) mat.textContent = '网页版由当前站点服务器提供素材（无需在此选择路径）';
-    if (exp) exp.textContent = '网页版导出为浏览器下载（无本地导出目录）';
-  }
-}
-
 function openSettings() {
-  loadSettings();
   document.getElementById('settingsModal').style.display = 'flex';
 }
 
 function closeSettings() {
   document.getElementById('settingsModal').style.display = 'none';
-}
-
-async function pickMaterials() {
-  if (typeof electronAPI === 'undefined') { alert('仅在打包版本中可用'); return; }
-  const res = await electronAPI.pickMaterials();
-  if (res.success) location.reload();
-}
-
-async function pickExport() {
-  if (typeof electronAPI === 'undefined') { alert('仅在打包版本中可用'); return; }
-  await electronAPI.pickExport();
-  loadSettings();
-}
-
-function openExportDir() {
-  if (typeof electronAPI !== 'undefined') electronAPI.openExport();
 }
 
 document.addEventListener('keydown', e => {

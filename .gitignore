@@ -1,4 +1,4 @@
-# 仅忽略仓库根目录说明（不影响子目录如 electron/README.md）
+# 仅忽略仓库根目录说明
 /README.md
 
 # 勿将 Node 安装包二进制提交进仓库

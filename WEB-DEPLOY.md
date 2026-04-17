@@ -15,7 +15,7 @@
 - `psd-writer.js`
 - `jsx-writer.js`
 
-不包含：`electron/`、`node_modules/`、`vendor/`（CSV 白名单可走网络拉取）、本机路径素材。
+不包含：`node_modules/`、`vendor/`（CSV 白名单可走网络拉取）、本机路径素材。
 
 装备名称卡 **equip-card-maker** 为独立项目，开发目录：`H:\equip-card-maker`（单独 Git 仓库，勿并入本仓库）。
 
