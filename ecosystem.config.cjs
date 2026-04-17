@@ -16,8 +16,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         ICON_COMPOSER_PORT: '3456',
-        // 若使用 Cloudflare 图床，取消下行注释并改成你的 Worker 根 URL（无末尾 /）
-        // ICON_COMPOSER_IMG_BASE: 'https://portable-icon.xxxxx.workers.dev',
+        // 默认已由 server.js 指向 Worker；仅当要强制本机 /img 时再设：ICON_COMPOSER_IMG_BASE: '/img',
         // 素材不在默认 ui/icon 时指定绝对路径：
         // ICON_COMPOSER_MATERIALS: '/www/wwwroot/icon-composer-main/ui/icon',
       },

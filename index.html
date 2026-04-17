@@ -1725,7 +1725,7 @@ async function drawImgFull(ctx, imgPath) {
   ctx.drawImage(img, dx, dy);
 }
 
-// 默认走图床；本机 node server.js 时 /api/files 会带 _meta.imgBase=/img，用本地解包避免「表里有号但图床无图」
+// 与 server.js 默认一致：Cloudflare Worker；若接口返回其它 _meta.imgBase 则以接口为准
 const CDN = 'https://portable-icon.2513985996.workers.dev';
 let ICON_IMG_BASE = CDN;
 

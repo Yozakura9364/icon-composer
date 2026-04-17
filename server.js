@@ -185,11 +185,13 @@ function loadPinnedFilesApiData() {
   }
 }
 
-/** 前端拉图基址；不设则 /img（走本机 ICON_ROOT）。设为你的 Worker 域名即可走 Cloudflare */
+/** 默认走 Cloudflare Worker 图床；若要改回由本机 /img 提供图片，设 ICON_COMPOSER_IMG_BASE=/img */
+const DEFAULT_IMG_BASE = 'https://portable-icon.2513985996.workers.dev';
+
 function resolveImgBase() {
   const v = process.env.ICON_COMPOSER_IMG_BASE;
   if (v && String(v).trim()) return String(v).trim().replace(/\/$/, '');
-  return '/img';
+  return DEFAULT_IMG_BASE;
 }
 
 const MIME = {
@@ -454,7 +456,7 @@ server.listen(PORT, () => {
     );
   }
   console.log(
-    '图片基址 _meta.imgBase: %s（Cloudflare 图床请设 ICON_COMPOSER_IMG_BASE，否则前端会跟本机 /img）',
+    '图片基址 _meta.imgBase: %s（覆盖默认请设环境变量 ICON_COMPOSER_IMG_BASE）',
     resolveImgBase()
   );
   try {
