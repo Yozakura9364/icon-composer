@@ -593,7 +593,8 @@ async function init() {
   const pc = document.getElementById('presetChar');
   if (pb) pb.disabled = false;
   if (pc) pc.disabled = false;
-  renderAll();
+  await renderAll();
+  await tryRestoreComposerConfigFromLocalStorage();
   document.getElementById('loadingOverlay').classList.add('hidden');
 }
 
@@ -623,6 +624,203 @@ function isWebRuntime() {
 }
 
 const THEME_KEY = 'iconComposerTheme';
+/** 网页端：图层/预设/视图等完整 UI 状态（localStorage，清除站点数据即消失） */
+const COMPOSER_CONFIG_STORAGE_KEY = 'iconComposer.ui.config.v1';
+const COMPOSER_CONFIG_FILE_VERSION = 1;
+
+let _persistComposerTimer = null;
+
+function schedulePersistComposerConfig() {
+  if (_persistComposerTimer) clearTimeout(_persistComposerTimer);
+  _persistComposerTimer = setTimeout(() => {
+    _persistComposerTimer = null;
+    try {
+      localStorage.setItem(
+        COMPOSER_CONFIG_STORAGE_KEY,
+        JSON.stringify(collectComposerConfigObject())
+      );
+    } catch (_) {
+      /* 配额不足时静默跳过，用户可用「下载 JSON」 */
+    }
+  }, 600);
+}
+
+function collectComposerConfigObject() {
+  const cats = [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'];
+  const selectedSnap = {};
+  for (const c of cats) {
+    const s = selected[c];
+    selectedSnap[c] = s ? { id: s.id, file: s.file, path: s.path } : null;
+  }
+  const pb = document.getElementById('presetBanner');
+  const pc = document.getElementById('presetChar');
+  return {
+    version: COMPOSER_CONFIG_FILE_VERSION,
+    savedAt: new Date().toISOString(),
+    theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark',
+    portraitSide,
+    activePanel,
+    activeTab,
+    zoomLevel,
+    viewOffset: { x: currentOffsetX, y: currentOffsetY },
+    presetBanner: pb ? pb.value : '',
+    presetChar: pc ? pc.value : '',
+    selected: selectedSnap,
+    customPortrait:
+      customPortraitImage && customPortraitImage.dataUrl
+        ? {
+            dataUrl: customPortraitImage.dataUrl,
+            fileName: customPortraitImage.fileName || '',
+            scale: customPortraitImage.scale != null ? customPortraitImage.scale : 1,
+          }
+        : null,
+  };
+}
+
+async function applyComposerConfigFromObject(obj) {
+  if (!obj || obj.version !== COMPOSER_CONFIG_FILE_VERSION) {
+    alert('配置文件版本不受支持（需要 version: ' + COMPOSER_CONFIG_FILE_VERSION + '）');
+    return;
+  }
+  if (obj.theme === 'light' || obj.theme === 'dark') {
+    localStorage.setItem(THEME_KEY, obj.theme);
+    applyThemeFromStorage();
+  }
+  if (obj.portraitSide === 'left' || obj.portraitSide === 'right') {
+    portraitSide = obj.portraitSide;
+    document.getElementById('sideLeft').classList.toggle('active', portraitSide === 'left');
+    document.getElementById('sideRight').classList.toggle('active', portraitSide === 'right');
+  }
+  const pb = document.getElementById('presetBanner');
+  const pc = document.getElementById('presetChar');
+  if (pb && typeof obj.presetBanner === 'string') pb.value = obj.presetBanner;
+  if (pc && typeof obj.presetChar === 'string') pc.value = obj.presetChar;
+
+  const cats = [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'];
+  if (obj.selected && typeof obj.selected === 'object') {
+    for (const c of cats) {
+      const snap = obj.selected[c];
+      if (!snap || snap.id == null || snap.id === '') {
+        selected[c] = null;
+        continue;
+      }
+      const fd = layerListFor(c);
+      const item =
+        fd.find(f => f.id === String(snap.id) && f.path === snap.path) ||
+        fd.find(f => f.id === String(snap.id));
+      selected[c] = item || null;
+      if (selected[c]) await ensureLoaded(selected[c].path);
+    }
+  }
+
+  if (obj.customPortrait && typeof obj.customPortrait.dataUrl === 'string' && obj.customPortrait.dataUrl) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('自定义图解码失败'));
+      img.src = obj.customPortrait.dataUrl;
+    });
+    customPortraitImage = {
+      fileName: obj.customPortrait.fileName || 'custom.png',
+      dataUrl: obj.customPortrait.dataUrl,
+      img,
+      scale:
+        typeof obj.customPortrait.scale === 'number' && !Number.isNaN(obj.customPortrait.scale)
+          ? obj.customPortrait.scale
+          : 1,
+    };
+  } else {
+    customPortraitImage = null;
+  }
+  updateCustomPortraitUI();
+
+  if (obj.activePanel === 'nameplate' || obj.activePanel === 'portrait') {
+    await switchPanelTab(obj.activePanel);
+  }
+  if (obj.activeTab === 'portrait' || obj.activeTab === 'full') {
+    await switchTab(obj.activeTab);
+  }
+
+  if (typeof obj.zoomLevel === 'number' && !Number.isNaN(obj.zoomLevel)) {
+    zoomLevel = obj.zoomLevel;
+    const zs = document.getElementById('zoomSelect');
+    if (zs) {
+      zs.value = String(zoomLevel);
+      if (![...zs.options].some(o => o.value === zs.value)) zs.value = '0.2';
+    }
+  }
+  if (obj.viewOffset && typeof obj.viewOffset.x === 'number') currentOffsetX = obj.viewOffset.x;
+  if (obj.viewOffset && typeof obj.viewOffset.y === 'number') currentOffsetY = obj.viewOffset.y;
+
+  renderPortraitSections();
+  renderNameplateSections();
+  applyTransform();
+  await render();
+  updateStatus();
+}
+
+async function tryRestoreComposerConfigFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(COMPOSER_CONFIG_STORAGE_KEY);
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    await applyComposerConfigFromObject(obj);
+  } catch (e) {
+    console.warn('[icon-composer] 恢复本地配置失败:', e);
+  }
+}
+
+function saveComposerConfigToBrowser() {
+  try {
+    localStorage.setItem(
+      COMPOSER_CONFIG_STORAGE_KEY,
+      JSON.stringify(collectComposerConfigObject())
+    );
+    alert('已保存到浏览器本地存储（与站点同源；清除该站点的缓存/数据后会丢失）。');
+  } catch (e) {
+    if (e && (e.name === 'QuotaExceededError' || e.code === 22)) {
+      alert('内容超出浏览器存储配额，请使用「下载 JSON」备份，或缩小自定义肖像图。');
+    } else {
+      alert('保存失败：' + (e && e.message ? e.message : e));
+    }
+  }
+}
+
+function downloadComposerConfigJson() {
+  const data = collectComposerConfigObject();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  a.href = URL.createObjectURL(blob);
+  a.download = 'icon-composer-config-' + stamp + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function loadComposerConfigFromBrowser() {
+  const raw = localStorage.getItem(COMPOSER_CONFIG_STORAGE_KEY);
+  if (!raw) {
+    alert('浏览器中暂无已保存的配置。请先使用「仅保存到浏览器」或编辑后由页面自动缓存。');
+    return;
+  }
+  try {
+    await applyComposerConfigFromObject(JSON.parse(raw));
+    alert('已从浏览器载入配置。');
+  } catch (e) {
+    alert('载入失败：' + (e && e.message ? e.message : e));
+  }
+}
+
+function clearComposerConfigFromBrowser() {
+  localStorage.removeItem(COMPOSER_CONFIG_STORAGE_KEY);
+  alert('已清除浏览器中保存的配置备份（昼夜主题仍使用当前设置）。');
+}
+
+function triggerLoadComposerConfigFile() {
+  const inp = document.getElementById('composerConfigFileInput');
+  if (inp) inp.click();
+}
 
 function applyThemeFromStorage() {
   let t = localStorage.getItem(THEME_KEY);
@@ -645,6 +843,7 @@ function toggleTheme() {
   const next = cur === 'dark' ? 'light' : 'dark';
   localStorage.setItem(THEME_KEY, next);
   applyThemeFromStorage();
+  schedulePersistComposerConfig();
 }
 
 function updateCustomPortraitUI() {
@@ -860,6 +1059,7 @@ async function applyCustomPortraitFromCropState(st) {
   if (activeTab !== 'portrait') await switchTab('portrait');
   updateCustomPortraitUI();
   await render();
+  schedulePersistComposerConfig();
 }
 
 function confirmCustomCrop() {
@@ -941,12 +1141,14 @@ function setCustomPortraitScale(value) {
     render();
   }
   updateCustomPortraitUI();
+  schedulePersistComposerConfig();
 }
 
 async function clearCustomPortraitImage() {
   customPortraitImage = null;
   updateCustomPortraitUI();
   await render();
+  schedulePersistComposerConfig();
 }
 
 /** 素材列表（必须是数组，否则 fd.find 会抛错导致预设应用中断、肖像层未写入） */
@@ -1029,6 +1231,7 @@ async function applyPreset(type, name) {
   renderNameplateSections();
   if (type === 'charcard') await switchTab('full');
   else await switchTab('portrait');
+  schedulePersistComposerConfig();
 }
 
 function prevPreset(type) {
@@ -1179,6 +1382,7 @@ async function pickItem(cat, item) {
   }
 
   await render();
+  schedulePersistComposerConfig();
 }
 
 function setPortraitSide(side) {
@@ -1186,12 +1390,14 @@ function setPortraitSide(side) {
   document.getElementById('sideLeft').classList.toggle('active', side === 'left');
   document.getElementById('sideRight').classList.toggle('active', side === 'right');
   render();
+  schedulePersistComposerConfig();
 }
 
 async function switchTab(tab) {
   activeTab = tab;
   await render();
   centerView();
+  schedulePersistComposerConfig();
 }
 
 async function switchPanelTab(panel) {
@@ -1202,6 +1408,7 @@ async function switchPanelTab(panel) {
   document.getElementById('nameplatePanel').style.display = panel === 'nameplate' ? '' : 'none';
   if (panel === 'portrait') await switchTab('portrait');
   else await switchTab('full');
+  schedulePersistComposerConfig();
 }
 
 async function clearAll() {
@@ -1209,6 +1416,7 @@ async function clearAll() {
   customPortraitImage = null;
   updateCustomPortraitUI();
   await renderAll();
+  schedulePersistComposerConfig();
 }
 
 // ============================================================
@@ -1567,6 +1775,7 @@ function setZoom(val) {
   zoomLevel = parseFloat(val);
   applyTransform();
   document.getElementById('zoomSelect').value = val;
+  schedulePersistComposerConfig();
 }
 
 function zoom(dir) {
@@ -1587,6 +1796,7 @@ function resetView() {
   zoomLevel = 0.2;
   document.getElementById('zoomSelect').value = '0.2';
   centerView();
+  schedulePersistComposerConfig();
 }
 
 // 拖拽
@@ -1606,7 +1816,11 @@ document.addEventListener('mousemove', e => {
   applyTransform();
 });
 document.addEventListener('mouseup', () => {
-  if (isDragging) { isDragging = false; viewport.classList.remove('dragging'); }
+  if (isDragging) {
+    isDragging = false;
+    viewport.classList.remove('dragging');
+    schedulePersistComposerConfig();
+  }
 });
 
 viewport.addEventListener('wheel', e => {
@@ -1823,21 +2037,41 @@ init();
 
 <!-- Settings Modal -->
 <div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:#1e1e2e;padding:28px;border-radius:12px;min-width:360px;max-width:480px;color:#cdd6f4;font-family:sans-serif;">
+  <div style="background:#1e1e2e;padding:28px;border-radius:12px;min-width:360px;max-width:520px;color:#cdd6f4;font-family:sans-serif;">
     <h2 style="margin:0 0 20px;font-size:18px;">⚙ 设置</h2>
-    <div style="margin-bottom:16px;">
-      <div style="font-size:13px;color:#a6adc8;margin-bottom:6px;">素材文件夹</div>
-      <div id="settingsMaterials" style="font-size:12px;color:#89b4fa;word-break:break-all;margin-bottom:6px;padding:6px;background:#181825;border-radius:6px;">—</div>
-      <button class="btn btn-secondary" onclick="pickMaterials()" style="font-size:12px;padding:4px 12px;">更改素材文件夹</button>
+
+    <div id="settingsComposerConfig" style="margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid #313244;">
+      <div style="font-size:13px;color:#cdd6f4;margin-bottom:8px;font-weight:600;">配置备份（JSON）</div>
+      <p style="font-size:11px;color:#a6adc8;line-height:1.5;margin-bottom:12px;">
+        使用浏览器 <strong>localStorage</strong> 保存（与站点同源）；清除该站点的缓存或网站数据后会丢失，不会写入 Cookie。
+        页面会在你调整图层、预设、视图后<strong>自动写入</strong>；也可手动保存或下载文件换机使用。
+      </p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <button type="button" class="btn btn-secondary" onclick="saveComposerConfigToBrowser()" style="font-size:12px;padding:5px 10px;">仅保存到浏览器</button>
+        <button type="button" class="btn btn-secondary" onclick="downloadComposerConfigJson()" style="font-size:12px;padding:5px 10px;">下载 JSON</button>
+        <button type="button" class="btn btn-ghost" onclick="void loadComposerConfigFromBrowser()" style="font-size:12px;padding:5px 10px;">从浏览器载入</button>
+        <button type="button" class="btn btn-ghost" onclick="triggerLoadComposerConfigFile()" style="font-size:12px;padding:5px 10px;">从文件载入</button>
+        <button type="button" class="btn btn-ghost" onclick="clearComposerConfigFromBrowser()" style="font-size:12px;padding:5px 10px;">清除浏览器备份</button>
+      </div>
+      <input type="file" id="composerConfigFileInput" accept="application/json,.json" style="display:none" aria-hidden="true">
     </div>
-    <div style="margin-bottom:20px;">
-      <div style="font-size:13px;color:#a6adc8;margin-bottom:6px;">导出目录</div>
-      <div id="settingsExport" style="font-size:12px;color:#89b4fa;word-break:break-all;margin-bottom:6px;padding:6px;background:#181825;border-radius:6px;">—</div>
-      <button class="btn btn-secondary" onclick="pickExport()" style="font-size:12px;padding:4px 12px;">更改导出目录</button>
+
+    <div id="settingsElectronBlock">
+      <div style="margin-bottom:16px;">
+        <div style="font-size:13px;color:#a6adc8;margin-bottom:6px;">素材文件夹</div>
+        <div id="settingsMaterials" style="font-size:12px;color:#89b4fa;word-break:break-all;margin-bottom:6px;padding:6px;background:#181825;border-radius:6px;">—</div>
+        <button type="button" class="btn btn-secondary" onclick="pickMaterials()" style="font-size:12px;padding:4px 12px;">更改素材文件夹</button>
+      </div>
+      <div style="margin-bottom:20px;">
+        <div style="font-size:13px;color:#a6adc8;margin-bottom:6px;">导出目录</div>
+        <div id="settingsExport" style="font-size:12px;color:#89b4fa;word-break:break-all;margin-bottom:6px;padding:6px;background:#181825;border-radius:6px;">—</div>
+        <button type="button" class="btn btn-secondary" onclick="pickExport()" style="font-size:12px;padding:4px 12px;">更改导出目录</button>
+      </div>
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn btn-ghost" onclick="closeSettings()" style="font-size:13px;padding:6px 16px;">关闭</button>
-      <button class="btn btn-primary" onclick="openExportDir()" style="font-size:13px;padding:6px 16px;">打开导出目录</button>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+      <button type="button" class="btn btn-ghost" onclick="closeSettings()" style="font-size:13px;padding:6px 16px;">关闭</button>
+      <button type="button" class="btn btn-primary" id="settingsOpenExportBtn" onclick="openExportDir()" style="font-size:13px;padding:6px 16px;">打开导出目录</button>
     </div>
   </div>
 </div>
@@ -1845,10 +2079,19 @@ init();
 <script>
 // === Electron / Settings ===
 async function loadSettings() {
+  const elBlock = document.getElementById('settingsElectronBlock');
+  const openBtn = document.getElementById('settingsOpenExportBtn');
+  if (elBlock) elBlock.style.display = typeof electronAPI !== 'undefined' ? '' : 'none';
+  if (openBtn) openBtn.style.display = typeof electronAPI !== 'undefined' ? '' : 'none';
   if (typeof electronAPI !== 'undefined') {
     const cfg = await electronAPI.getConfig();
     document.getElementById('settingsMaterials').textContent = cfg.materialsPath || '未设置';
     document.getElementById('settingsExport').textContent    = cfg.exportPath    || '未设置';
+  } else {
+    const mat = document.getElementById('settingsMaterials');
+    const exp = document.getElementById('settingsExport');
+    if (mat) mat.textContent = '网页版由当前站点服务器提供素材（无需在此选择路径）';
+    if (exp) exp.textContent = '网页版导出为浏览器下载（无本地导出目录）';
   }
 }
 
@@ -1896,11 +2139,24 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// 网页版（非Electron）隐藏设置按钮，保留昼夜切换
-if (typeof electronAPI === 'undefined') {
-  const sb = document.getElementById('settingsBtn');
-  if (sb) sb.style.display = 'none';
-}
+(function setupComposerConfigFileInput() {
+  const inp = document.getElementById('composerConfigFileInput');
+  if (!inp || inp.dataset.bound === '1') return;
+  inp.dataset.bound = '1';
+  inp.addEventListener('change', async () => {
+    const f = inp.files && inp.files[0];
+    inp.value = '';
+    if (!f) return;
+    try {
+      const text = await f.text();
+      await applyComposerConfigFromObject(JSON.parse(text));
+      closeSettings();
+      alert('已从文件载入配置。');
+    } catch (e) {
+      alert('载入失败：' + (e && e.message ? e.message : e));
+    }
+  });
+})();
 </script>
 </body>
 </html>
