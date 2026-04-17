@@ -7,9 +7,13 @@ const { generateJSXScript } = require('./jsx-writer');
 const { getCsvWhitelistSync } = require('./csv-whitelist');
 
 // 支持命令行参数: --materials <path> --export <path>
+// 部署时可设环境变量 ICON_COMPOSER_MATERIALS / ICON_COMPOSER_EXPORT（命令行优先）
 const args = process.argv.slice(2);
-let ICON_ROOT = 'H:/解包/2026.03.17.0000.0000/ui/icon';
-let EXPORT_ROOT = null;
+// 默认：仓库根目录下 ui/icon（与游戏解包 ui/icon 结构一致：若干六位数字子目录 + PNG）
+let ICON_ROOT =
+  process.env.ICON_COMPOSER_MATERIALS ||
+  path.join(__dirname, 'ui', 'icon');
+let EXPORT_ROOT = process.env.ICON_COMPOSER_EXPORT || null;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--materials' && args[i + 1]) ICON_ROOT = args[++i];
   if (args[i] === '--export'    && args[i + 1]) EXPORT_ROOT = args[++i];
@@ -144,6 +148,50 @@ function filterFileDataByWhitelist(data, set) {
   return out;
 }
 
+/** 无本地 ui/icon 时，可用本机扫出来的 JSON 缓存（见启动日志说明） */
+function resolveFilesJsonPath() {
+  const p = process.env.ICON_COMPOSER_FILES_JSON;
+  if (!p) return path.join(__dirname, 'api-files-cache.json');
+  return path.isAbsolute(p) ? p : path.join(__dirname, p);
+}
+
+let filesJsonCache = { key: '', mtimeMs: 0, data: null };
+
+function loadPinnedFilesApiData() {
+  const jsonPath = resolveFilesJsonPath();
+  if (!fs.existsSync(jsonPath)) {
+    filesJsonCache = { key: '', mtimeMs: 0, data: null };
+    return null;
+  }
+  try {
+    const mtimeMs = fs.statSync(jsonPath).mtimeMs;
+    if (filesJsonCache.key === jsonPath && filesJsonCache.mtimeMs === mtimeMs) {
+      return filesJsonCache.data;
+    }
+    const raw = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    if (!raw || typeof raw !== 'object' || !raw.portrait || !raw.nameplate) {
+      console.warn('[icon-composer] api-files 缓存缺少 portrait/nameplate 字段:', jsonPath);
+      return null;
+    }
+    filesJsonCache = {
+      key: jsonPath,
+      mtimeMs,
+      data: { portrait: raw.portrait, nameplate: raw.nameplate },
+    };
+    return filesJsonCache.data;
+  } catch (e) {
+    console.warn('[icon-composer] 读取 api-files 缓存失败 (%s): %s', jsonPath, e.message);
+    return null;
+  }
+}
+
+/** 前端拉图基址；不设则 /img（走本机 ICON_ROOT）。设为你的 Worker 域名即可走 Cloudflare */
+function resolveImgBase() {
+  const v = process.env.ICON_COMPOSER_IMG_BASE;
+  if (v && String(v).trim()) return String(v).trim().replace(/\/$/, '');
+  return '/img';
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js':   'application/javascript',
@@ -191,7 +239,8 @@ const server = http.createServer((req, res) => {
 
   if (pathname === '/api/files') {
     metrics.apiFiles += 1;
-    let data = scanFiles();
+    let data = loadPinnedFilesApiData();
+    if (!data) data = scanFiles();
     const csvWhitelist = getCsvWhitelistSync();
     if (csvWhitelist && csvWhitelist.size > 0) {
       data = filterFileDataByWhitelist(data, csvWhitelist);
@@ -199,7 +248,7 @@ const server = http.createServer((req, res) => {
     const payload = {
       portrait: data.portrait,
       nameplate: data.nameplate,
-      _meta: { imgBase: '/img' },
+      _meta: { imgBase: resolveImgBase() },
     };
     res.writeHead(200, {
       'Content-Type': 'application/json',
@@ -397,6 +446,27 @@ server.listen(PORT, () => {
   }
   console.log(`铭牌生成器已启动: http://localhost:${PORT}`);
   console.log(`素材目录: ${ICON_ROOT}`);
+  const pinned = resolveFilesJsonPath();
+  if (fs.existsSync(pinned)) {
+    console.log(
+      '已检测到 api-files 缓存: %s（将优先用于 /api/files 列表，无需在服务器上放整包 ui/icon）',
+      pinned
+    );
+  }
+  console.log(
+    '图片基址 _meta.imgBase: %s（Cloudflare 图床请设 ICON_COMPOSER_IMG_BASE，否则前端会跟本机 /img）',
+    resolveImgBase()
+  );
+  try {
+    if (!fs.existsSync(ICON_ROOT)) {
+      const hint = fs.existsSync(pinned)
+        ? '当前有 api-files 缓存，列表可不依赖本地目录；若无缓存仍为空，请配置 ICON_COMPOSER_MATERIALS 或在有解包的机器上生成 api-files-cache.json 后上传到服务器。'
+        : '请设置 ICON_COMPOSER_MATERIALS 或 --materials；或放置 api-files-cache.json（可用有素材的本机 curl /api/files 生成，去掉 _meta 字段）并设置 ICON_COMPOSER_IMG_BASE 指向图床。';
+      console.warn('[警告] 素材目录不存在或不可访问。' + hint);
+    }
+  } catch (e) {
+    console.warn('[警告] 无法检查素材目录:', e.message);
+  }
   if (METRICS_SECRET) {
     console.log(`指标: GET /api/metrics?secret=*** (已设置 METRICS_SECRET)`);
   } else {

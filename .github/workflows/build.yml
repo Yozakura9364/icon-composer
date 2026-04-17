@@ -1,0 +1,47 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: electron/package.json
+
+      - name: Install dependencies
+        run: npm install --registry https://registry.npmmirror.com
+        working-directory: electron
+
+      - name: Build portable exe
+        run: npx electron-builder --win portable --x64
+        working-directory: electron
+
+      - name: Find exe
+        id: find_exe
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path electron/out -Filter "*.exe" -Recurse | Select-Object -First 1
+          Write-Host "exe_name=$($exe.Name)"
+          Write-Host "exe_path=$($exe.FullName)"
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: electron/out/${{ steps.find_exe.outputs.exe_name }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
