@@ -61,19 +61,22 @@ function generateJSXScript(layers, canvasWidth, canvasHeight, outputFilename, sa
     jsxLines.push('  var pasted = doc.activeLayer;');
     jsxLines.push('  pasted.name = "' + layerName + '";');
     jsxLines.push('  pasted.opacity = ' + opacity + ';');
-    jsxLines.push('  // DEBUG: 显示 paste 后的 bounds');
-    jsxLines.push('  alert("Layer: ' + layerName + ' bounds=" + [pasted.bounds[0].value, pasted.bounds[1].value, pasted.bounds[2].value, pasted.bounds[3].value].join(","));');
     jsxLines.push('');
-    // 缩放到原始尺寸
-    jsxLines.push('  var targetW = UnitValue(' + ly.width + ', "px");');
-    jsxLines.push('  var targetH = UnitValue(' + ly.height + ', "px");');
+    // 缩放到导出声明的像素尺寸（与前端 rgbaData 画布一致）
     jsxLines.push('  var curW = pasted.bounds[2].value - pasted.bounds[0].value;');
     jsxLines.push('  var curH = pasted.bounds[3].value - pasted.bounds[1].value;');
-    jsxLines.push('  if (Math.abs(curW - targetW.value) > 0.1 || Math.abs(curH - targetH.value) > 0.1) {');
-    jsxLines.push('    var scaleX = (targetW.value / curW) * 100;');
-    jsxLines.push('    var scaleY = (targetH.value / curH) * 100;');
-    jsxLines.push('    pasted.resize(scaleX, scaleY, AnchorPosition.TOPLEFT);');
-    jsxLines.push('  }');
+    const tw = Number(ly.width);
+    const th = Number(ly.height);
+    const hasDims = Number.isFinite(tw) && Number.isFinite(th) && tw > 0 && th > 0;
+    if (hasDims) {
+      jsxLines.push('  var targetW = UnitValue(' + tw + ', "px");');
+      jsxLines.push('  var targetH = UnitValue(' + th + ', "px");');
+      jsxLines.push('  if (Math.abs(curW - targetW.value) > 0.1 || Math.abs(curH - targetH.value) > 0.1) {');
+      jsxLines.push('    var scaleX = (targetW.value / curW) * 100;');
+      jsxLines.push('    var scaleY = (targetH.value / curH) * 100;');
+      jsxLines.push('    pasted.resize(scaleX, scaleY, AnchorPosition.TOPLEFT);');
+      jsxLines.push('  }');
+    }
     jsxLines.push('');
     // 移动到目标位置
     if (ly.x !== 0 || ly.y !== 0) {
