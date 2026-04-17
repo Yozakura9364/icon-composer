@@ -1,0 +1,9 @@
+{
+  "name": "equip-card-maker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FFXIV equipment icon + name card (local web)",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

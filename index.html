@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>铭牌生成器</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --panel: #1a1d27;
+  --card: #252836;
+  --card2: #1e2130;
+  --accent: #f59e0b;
+  --accent2: #6366f1;
+  --text: #e8eaf0;
+  --text-dim: #7a8194;
+  --border: #2d3147;
+  --portrait: #10b981;
+  --nameplate: #3b82f6;
+  --canvas-area-bg: #0a0c12;
+  --thumb-bg: rgba(255,255,255,0.03);
+  --thumb-tnum-bg: rgba(0,0,0,0.55);
+  --layer-loading-bg: rgba(10, 12, 18, 0.5);
+}
+[data-theme="light"] {
+  --bg: #f0f2f7;
+  --panel: #ffffff;
+  --card: #e8ecf4;
+  --card2: #e2e6ef;
+  --accent: #d97706;
+  --accent2: #4f46e5;
+  --text: #1c2130;
+  --text-dim: #5a6270;
+  --border: #c8ced9;
+  --portrait: #059669;
+  --nameplate: #2563eb;
+  --canvas-area-bg: #e4e8f0;
+  --thumb-bg: rgba(0,0,0,0.04);
+  --thumb-tnum-bg: rgba(255,255,255,0.85);
+  --layer-loading-bg: rgba(240, 242, 247, 0.72);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  height: 100%; overflow: hidden;
+}
+body { display: flex; flex-direction: column; }
+
+/* === 头部 === */
+header {
+  position: relative;
+  z-index: 2;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  padding: 8px 16px; display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+}
+header h1 { font-size: 15px; font-weight: 700; }
+header .subtitle { font-size: 11px; color: var(--text-dim); }
+.header-actions {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* === 主布局 === */
+.main { display: flex; flex: 1; overflow: hidden; }
+
+/* === 画布区 === */
+.canvas-area {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 12px; gap: 10px; overflow: hidden;
+  background: var(--canvas-area-bg);
+}
+.canvas-viewport {
+  flex: 1; overflow: hidden; position: relative;
+  width: 100%; cursor: grab;
+  display: flex; align-items: center; justify-content: center;
+}
+.canvas-viewport.dragging { cursor: grabbing; }
+.canvas-container { position: relative; flex-shrink: 0; }
+.canvas-container canvas { display: block; image-rendering: auto; }
+canvas { image-rendering: auto; }
+
+/* === 画布控制条 === */
+.canvas-controls {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; justify-content: center; flex-shrink: 0;
+}
+.zoom-ctrl { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.zoom-ctrl button {
+  width: 24px; height: 24px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; transition: background 0.12s;
+}
+.zoom-ctrl button:hover { background: var(--card2); }
+.zoom-ctrl select {
+  background: var(--card); color: var(--text); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 8px; font-size: 12px; cursor: pointer;
+}
+.btn {
+  padding: 6px 16px; border-radius: 5px; font-size: 12px; font-weight: 500;
+  cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s;
+}
+.btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary { background: var(--accent); color: #111; }
+.btn-secondary { background: var(--accent2); color: #fff; }
+.btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); }
+#statusBar { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+.custom-upload-box {
+  background: var(--card2); border-radius: 6px; padding: 9px 10px; margin: 0 0 10px;
+}
+.custom-upload-title { font-size: 10px; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.custom-upload-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+.custom-upload-name { font-size: 11px; color: var(--text-dim); min-height: 16px; word-break: break-all; }
+.range-wrap { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); }
+.range-wrap input[type="range"] { flex: 1; }
+.range-wrap .val { min-width: 36px; text-align: right; }
+
+/* === 右侧配置面板 === */
+.config-panel {
+  width: 280px; min-width: 240px; background: var(--panel);
+  border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;
+}
+.panel-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.panel-tab {
+  flex: 1; padding: 9px 6px; font-size: 11px; font-weight: 600;
+  cursor: pointer; border: none; background: transparent;
+  color: var(--text-dim); border-bottom: 2px solid transparent;
+  transition: all 0.15s; text-align: center;
+}
+.panel-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.panel-tab.portrait-tab.active { border-bottom-color: var(--portrait); }
+.panel-tab.nameplate-tab.active { border-bottom-color: var(--nameplate); }
+
+.panel-scroll { flex: 1; overflow-y: auto; padding: 8px 10px; }
+.panel-scroll::-webkit-scrollbar { width: 3px; }
+.panel-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* 肖像位置切换 */
+.side-toggle {
+  background: var(--card2); border-radius: 6px; padding: 9px 10px; margin-bottom: 10px;
+}
+.side-toggle .st-label { font-size: 10px; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+.st-options { display: flex; gap: 5px; }
+.st-btn {
+  flex: 1; padding: 5px 6px; border-radius: 4px; font-size: 12px;
+  cursor: pointer; border: 1px solid var(--border); background: transparent;
+  color: var(--text-dim); text-align: center; transition: all 0.15s;
+}
+.st-btn:hover { border-color: var(--text-dim); color: var(--text); }
+.st-btn.active { background: var(--portrait); border-color: var(--portrait); color: #fff; font-weight: 600; }
+
+/* 分类组标题 */
+.group-title {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text-dim);
+  margin: 10px 0 5px;
+  display: flex; align-items: center; gap: 5px;
+}
+.group-title .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.group-title.portrait .dot { background: var(--portrait); }
+.group-title.nameplate .dot { background: var(--nameplate); }
+
+/* 分类区块 */
+.layer-section { background: var(--card2); border-radius: 5px; margin-bottom: 5px; overflow: hidden; }
+.section-header {
+  padding: 7px 9px; display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none; font-size: 12px; font-weight: 500;
+  transition: background 0.12s;
+}
+.section-header:hover { background: rgba(128,128,128,0.08); }
+.sname { display: flex; align-items: center; gap: 5px; }
+.check-dot {
+  width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--border);
+  transition: background 0.2s, border-color 0.2s; flex-shrink: 0;
+}
+.check-dot.checked { background: var(--accent); border-color: var(--accent); }
+.section-right { display: flex; align-items: center; gap: 5px; }
+.coord-tag {
+  font-size: 10px; color: var(--text-dim);
+  background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px;
+}
+.arrow { font-size: 8px; color: var(--text-dim); transition: transform 0.2s; }
+.layer-section.open .arrow { transform: rotate(90deg); }
+.section-body { display: none; padding: 5px 7px 7px; }
+.layer-section.open .section-body { display: block; }
+
+/* 缩略图：不要在内层再做 max-height + 滚动，否则与外层 .panel-scroll 嵌套时
+   loading="lazy" 常判定不到视口、底部缩略图长期不加载（破图），且滚动/点击很难用 */
+.thumb-row {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  align-content: flex-start;
+}
+.thumb-item {
+  width: 52px; height: 52px; border-radius: 4px; border: 2px solid transparent;
+  cursor: pointer; overflow: hidden; background: var(--thumb-bg);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; flex-shrink: 0;
+  transition: border-color 0.1s, transform 0.1s;
+}
+.thumb-item:hover { border-color: rgba(255,255,255,0.25); transform: scale(1.06); }
+.thumb-item.selected { border-color: var(--accent); }
+.thumb-item img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.thumb-item.thumb-missing img { opacity: 0.18; }
+.thumb-item.thumb-missing .tnum { opacity: 0.45; }
+.thumb-item .tnum {
+  position: absolute; bottom: 0; left: 0; right: 0; font-size: 8px;
+  color: var(--text-dim); background: var(--thumb-tnum-bg);
+  text-align: center; padding: 1px 0; pointer-events: none;
+}
+.no-imgs { font-size: 11px; color: var(--text-dim); padding: 3px 0; }
+
+/* 导出栏 */
+.export-bar {
+  border-top: 1px solid var(--border); padding: 8px 10px;
+  display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap;
+}
+.export-bar .btn { flex: 1; min-width: 70px; text-align: center; }
+
+/* Loading */
+.loading-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 14px; z-index: 999; font-size: 14px;
+}
+.spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-overlay.hidden { display: none; }
+
+.layer-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--layer-loading-bg);
+  pointer-events: auto;
+}
+.layer-loading-overlay.visible {
+  display: flex;
+}
+.layer-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 32px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.crop-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.88);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.crop-modal-backdrop.open { display: flex; }
+.crop-modal-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+.crop-modal-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.crop-modal-sub { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.45; }
+#customCropCanvas {
+  display: block;
+  margin: 0 auto;
+  max-width: min(92vw, 400px);
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  cursor: grab;
+  border: 1px solid var(--border);
+  touch-action: none;
+}
+#customCropCanvas.dragging { cursor: grabbing; }
+.crop-modal-toolbar { margin-top: 12px; }
+.crop-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+
+.avatar-pick-wrap {
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  display: inline-block;
+}
+.avatar-pick-wrap input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+}
+.avatar-pick-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  transition: border-color 0.15s, transform 0.12s;
+}
+.avatar-pick-wrap:hover .avatar-pick-circle { border-color: var(--accent); transform: scale(1.03); }
+#customPortraitAvatarGlyph { font-size: 26px; color: var(--text-dim); line-height: 1; user-select: none; }
+
+[data-theme="light"] #presetBanner,
+[data-theme="light"] #presetChar {
+  background: var(--card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div>正在扫描素材文件…</div>
+</div>
+
+<div id="layerLoadingOverlay" class="layer-loading-overlay" aria-hidden="true">
+  <div class="layer-loading-box">
+    <div class="spinner"></div>
+    <div>加载中</div>
+  </div>
+</div>
+
+<div id="customCropModal" class="crop-modal-backdrop" aria-hidden="true" onclick="if(event.target===this)cancelCustomCrop()">
+  <div class="crop-modal-panel" role="dialog" aria-labelledby="customCropTitle" onclick="event.stopPropagation()">
+    <div class="crop-modal-title" id="customCropTitle">裁切为 512×840</div>
+    <p class="crop-modal-sub">拖动图片调整取景；滚轮或下方滑块缩放。裁切框比例与肖像画布一致。</p>
+    <canvas id="customCropCanvas" width="512" height="840"></canvas>
+    <div class="crop-modal-toolbar">
+      <div class="range-wrap" style="width:100%;">
+        <span>缩放</span>
+        <input type="range" id="customCropMulRange" min="1" max="3" step="0.02" value="1">
+        <span class="val" id="customCropMulValue">100%</span>
+      </div>
+    </div>
+    <div class="crop-modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="cancelCustomCrop()">取消</button>
+      <button type="button" class="btn btn-primary" onclick="confirmCustomCrop()">确定</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <h1>铭牌生成器</h1>
+  <div class="subtitle">FF14铭牌DIY</div>
+  <div class="header-actions">
+    <button type="button" class="btn btn-ghost" id="themeToggleBtn" onclick="toggleTheme()" title="切换浅色/深色" style="font-size:12px;padding:4px 10px;white-space:nowrap;"><span id="themeToggleIcon">☀</span> 昼夜</button>
+    <button type="button" class="btn btn-ghost" id="settingsBtn" onclick="openSettings()" title="设置" style="font-size:16px;padding:4px 8px;">⚙</button>
+  </div>
+</header>
+
+<div class="main">
+  <!-- 画布区 -->
+  <div class="canvas-area">
+    <div class="canvas-viewport" id="canvasViewport">
+      <div class="canvas-container" id="canvasContainer">
+        <canvas id="mainCanvas"></canvas>
+      </div>
+    </div>
+    <div class="canvas-controls">
+      <div class="zoom-ctrl">
+        <button onclick="zoom(-1)">−</button>
+        <select id="zoomSelect" onchange="setZoom(this.value)">
+          <option value="0.05">5%</option>
+          <option value="0.1">10%</option>
+          <option value="0.2" selected>20%</option>
+          <option value="0.3">30%</option>
+          <option value="0.5">50%</option>
+          <option value="1">100%</option>
+        </select>
+        <button onclick="zoom(1)">+</button>
+        <button onclick="resetView()" title="重置视图" style="font-size:11px;width:auto;padding:0 6px;">⊙</button>
+      </div>
+      <button class="btn btn-primary" onclick="exportCanvas()">导出 PNG</button>
+      <button class="btn btn-secondary" id="exportLayeredZipBtn" onclick="exportLayeredZip()" style="display:none;background:#0ea5e9;">导出分层 ZIP</button>
+      <button class="btn btn-secondary" id="exportPsdJsxBtn" onclick="exportPSDJSX()" style="background:#f59e0b;">导出PSD(JSX)</button>
+      <button class="btn btn-ghost" onclick="clearAll()">清空</button>
+      <button class="btn btn-ghost" id="clearCustomImageBtn" onclick="clearCustomPortraitImage()" style="display:none;">清空自定义图片</button>
+    </div>
+    <div id="statusBar">已选 0 层</div>
+  </div>
+
+  <!-- 右侧配置面板 -->
+  <div class="config-panel">
+    <div class="panel-tabs" style="padding:0 10px;">
+      <button class="panel-tab portrait-tab active" id="pTabPortrait" onclick="void switchPanelTab('portrait')">肖像</button>
+      <button class="panel-tab nameplate-tab" id="pTabNameplate" onclick="void switchPanelTab('nameplate')">铭牌</button>
+    </div>
+
+    <div class="panel-scroll" id="panelScroll">
+      <!-- 肖像配置 -->
+      <div id="portraitPanel">
+        <div class="side-toggle">
+          <div class="st-label">肖像位置</div>
+          <div class="st-options">
+            <div class="st-btn" id="sideLeft" onclick="setPortraitSide('left')">左侧</div>
+            <div class="st-btn active" id="sideRight" onclick="setPortraitSide('right')">右侧</div>
+          </div>
+        </div>
+        <div class="group-title portrait"><div class="dot"></div>肖像图层（512×840）</div>
+        <div style="padding:6px 10px; display:flex; gap:4px; align-items:center; overflow:hidden;">
+          <button class="btn btn-ghost" onclick="prevPreset('banner')" title="上一个肖像预设" style="flex-shrink:0;">◀</button>
+          <select id="presetBanner" disabled onchange="void applyPreset('banner', this.value)" style="flex:1; min-width:0; padding:5px; border-radius:4px; border:1px solid #555; background:#2a2a2a; color:#ccc; font-size:13px;">
+            <option value="">— 选择肖像预设 —</option>
+          </select>
+          <button class="btn btn-ghost" onclick="nextPreset('banner')" title="下一个肖像预设" style="flex-shrink:0;">▶</button>
+        </div>
+        <div class="custom-upload-box">
+          <div class="custom-upload-title">自定义肖像（位于背景与装饰框之间）</div>
+          <div class="custom-upload-row" style="align-items: flex-start;">
+            <label class="avatar-pick-wrap" title="选择图片后在 512×840 框内裁切">
+              <div class="avatar-pick-circle" id="customPortraitAvatarCircle">
+                <span id="customPortraitAvatarGlyph">+</span>
+                <img id="customPortraitAvatarThumb" alt="" width="56" height="56" style="display:none;width:100%;height:100%;object-fit:cover;">
+              </div>
+              <input id="customPortraitInput" type="file" accept="image/png,image/jpeg" tabindex="-1" aria-label="选择自定义肖像图片">
+            </label>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:11px;color:var(--text-dim);line-height:1.45;">点击圆形上传，在裁切界面拖动图片、滚轮或滑块缩放，确定后生成 512×840 图层。需调整请重新上传。</div>
+            </div>
+          </div>
+          <div class="range-wrap">
+            <span>图层缩放微调</span>
+            <input id="customPortraitScale" type="range" min="0.2" max="3" step="0.05" value="1" onchange="setCustomPortraitScale(this.value)" oninput="setCustomPortraitScale(this.value)">
+            <span class="val" id="customPortraitScaleValue">100%</span>
+          </div>
+          <div class="custom-upload-name" id="customPortraitName">未上传自定义图片</div>
+        </div>
+        <div id="portraitSections"></div>
+      </div>
+
+      <!-- 铭牌配置 -->
+      <div id="nameplatePanel" style="display:none;">
+        <div class="group-title nameplate"><div class="dot"></div>铭牌图层（2560×1440）</div>
+        <div style="padding:6px 10px; display:flex; gap:4px; align-items:center; overflow:hidden;">
+          <button class="btn btn-ghost" onclick="prevPreset('charcard')" title="上一个铭牌预设" style="flex-shrink:0;">◀</button>
+          <select id="presetChar" disabled onchange="void applyPreset('charcard', this.value)" style="flex:1; min-width:0; padding:5px; border-radius:4px; border:1px solid #555; background:#2a2a2a; color:#ccc; font-size:13px;">
+            <option value="">— 选择铭牌预设 —</option>
+          </select>
+          <button class="btn btn-ghost" onclick="nextPreset('charcard')" title="下一个铭牌预设" style="flex-shrink:0;">▶</button>
+        </div>
+        <div id="nameplateSections"></div>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 常量定义
+// ============================================================
+const CANVAS_FULL     = { w: 2560, h: 1440 };
+const CANVAS_PORTRAIT = { w: 512,  h: 840  };
+
+// 肖像画布内部图层（3层，由下到上）
+const PORTRAIT_CATS = ['肖像背景', '肖像装饰框', '肖像装饰物'];
+
+// 铭牌画布图层（由下到上）
+const NAMEPLATE_CATS = [
+  '铭牌背衬',
+  '铭牌底色',
+  '铭牌花纹',
+  '铭牌外框',
+  '铭牌顶部装饰',
+  '铭牌底部装饰',
+  '铭牌装饰物',
+  '铭牌装饰物B',
+];
+
+// ============================================================
+// 坐标定义（铭牌画布坐标系）
+// ============================================================
+const LAYER_COORDS = {
+  // --- 肖像画布内（512×840）---
+  '肖像背景':   { canvas: 'portrait',  x: 0,   y: 0,   layer: 1 },
+  '肖像装饰框': { canvas: 'portrait',  x: 0,   y: 0,   layer: 2 },
+  '肖像装饰物': { canvas: 'portrait',  x: 0,   y: 0,   layer: 3 },
+  // --- 铭牌画布内（2560×1440）---
+  '铭牌背衬':   { canvas: 'nameplate', x: 0,   y: 0,   layer: 1 },
+  '铭牌底色':   { canvas: 'nameplate', x: 540, y: 300, layer: 2 },
+  '铭牌花纹':   { canvas: 'nameplate', x: 540, y: 300, layer: 3 },
+  '铭牌外框':   { canvas: 'nameplate', x: 320, y: 172, layer: 5 },
+  '铭牌顶部装饰': { canvas: 'nameplate', x: 320, y: 172, layer: 7 },
+  '铭牌底部装饰': { canvas: 'nameplate', x: 320, y: 956, layer: 8 },
+  '铭牌装饰物': { canvas: 'nameplate', x: 1700, y: 763, layer: 9 },
+  '铭牌装饰物B': { canvas: 'nameplate', x: 1764, y: 824, layer: 10, scale: 0.75 },
+};
+
+// 肖像画布嵌入铭牌画布的坐标
+const PORTRAIT_EMBED = {
+  right: { x: 1444, y: 300 },
+  left:  { x: 604,  y: 300 },
+};
+
+// 肖像外框（197）在铭牌画布的坐标
+const PORTRAIT_FRAME_ON_NAMEPLATE = {
+  right: { x: 1260, y: 0 },
+  left:  { x: 420,  y: 0 },
+};
+
+// ============================================================
+// 状态
+// ============================================================
+let fileData = { portrait: {}, nameplate: {} };
+let selected = {};         // { 分类名: {id,file,path} | null }
+let portraitSide = 'right';
+let activeTab = 'portrait'; // 'full' | 'portrait'，与默认展示的肖像侧栏一致
+let activePanel = 'portrait';
+let imgCache = {};         // path -> HTMLImageElement
+let zoomLevel = 0.2;
+let presets = { banner: [], charcard: [] };
+let customPortraitImage = null;
+let pendingCustomPick = false;
+/** @type {{ img: HTMLImageElement, fileName: string, dataUrl: string, s0: number, mul: number, offX: number, offY: number } | null} */
+let customCropState = null;
+let layerRenderDepth = 0;
+let layerLoadingShowTimer = null;
+
+// 拖拽状态
+let isDragging = false;
+let dragStartX = 0, dragStartY = 0;
+let currentOffsetX = 0, currentOffsetY = 0;
+
+// ============================================================
+// 初始化
+// ============================================================
+async function init() {
+  try {
+    const [filesResp, presetsResp] = await Promise.all([
+      fetch('/api/files'),
+      fetch('/api/presets'),
+    ]);
+    const filesPayload = await filesResp.json();
+    if (filesPayload._meta && typeof filesPayload._meta.imgBase === 'string') {
+      ICON_IMG_BASE = filesPayload._meta.imgBase;
+    } else {
+      ICON_IMG_BASE = CDN;
+    }
+    fileData = {
+      portrait: filesPayload.portrait || {},
+      nameplate: filesPayload.nameplate || {},
+    };
+    const rawPresets = await presetsResp.json();
+    presets = {
+      banner: Array.isArray(rawPresets.banner) ? rawPresets.banner : [],
+      charcard: Array.isArray(rawPresets.charcard) ? rawPresets.charcard : [],
+    };
+  } catch(e) {
+    applyThemeFromStorage();
+    alert('无法连接服务器！请先运行：node server.js\n\n' + e);
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    return;
+  }
+  [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => { selected[c] = null; });
+  renderPresetSelects();
+  setupCustomPortraitFileInput();
+  updateCustomPortraitUI();
+  const pb = document.getElementById('presetBanner');
+  const pc = document.getElementById('presetChar');
+  if (pb) pb.disabled = false;
+  if (pc) pc.disabled = false;
+  renderAll();
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+function renderPresetSelects() {
+  const bannerSel = document.getElementById('presetBanner');
+  const charSel = document.getElementById('presetChar');
+  while (bannerSel.options.length > 1) bannerSel.remove(1);
+  while (charSel.options.length > 1) charSel.remove(1);
+
+  presets.banner.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name;
+    bannerSel.appendChild(opt);
+  });
+
+  presets.charcard.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name;
+    charSel.appendChild(opt);
+  });
+}
+
+function isWebRuntime() {
+  return typeof electronAPI === 'undefined';
+}
+
+const THEME_KEY = 'iconComposerTheme';
+
+function applyThemeFromStorage() {
+  let t = localStorage.getItem(THEME_KEY);
+  if (t !== 'light' && t !== 'dark') {
+    t = 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', t);
+  const btn = document.getElementById('themeToggleBtn');
+  const icon = document.getElementById('themeToggleIcon');
+  if (icon) {
+    icon.textContent = t === 'dark' ? '☀' : '🌙';
+  }
+  if (btn) {
+    btn.title = t === 'dark' ? '切换为浅色' : '切换为深色';
+  }
+}
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  const next = cur === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, next);
+  applyThemeFromStorage();
+}
+
+function updateCustomPortraitUI() {
+  const clearBtn = document.getElementById('clearCustomImageBtn');
+  const nameEl = document.getElementById('customPortraitName');
+  const scaleInput = document.getElementById('customPortraitScale');
+  const scaleValue = document.getElementById('customPortraitScaleValue');
+  const zipBtn = document.getElementById('exportLayeredZipBtn');
+  const jsxBtn = document.getElementById('exportPsdJsxBtn');
+
+  if (zipBtn) zipBtn.style.display = isWebRuntime() ? '' : 'none';
+  if (jsxBtn) jsxBtn.style.display = isWebRuntime() ? 'none' : '';
+  if (clearBtn) clearBtn.style.display = customPortraitImage ? '' : 'none';
+  if (nameEl) nameEl.textContent = customPortraitImage ? customPortraitImage.fileName : '未上传自定义图片';
+  if (scaleInput) scaleInput.value = customPortraitImage ? String(customPortraitImage.scale) : '1';
+  if (scaleValue) scaleValue.textContent = Math.round((customPortraitImage ? customPortraitImage.scale : 1) * 100) + '%';
+  const thumb = document.getElementById('customPortraitAvatarThumb');
+  const glyph = document.getElementById('customPortraitAvatarGlyph');
+  if (thumb && glyph) {
+    if (customPortraitImage && customPortraitImage.dataUrl) {
+      thumb.src = customPortraitImage.dataUrl;
+      thumb.style.display = 'block';
+      glyph.style.display = 'none';
+    } else {
+      thumb.removeAttribute('src');
+      thumb.style.display = 'none';
+      glyph.style.display = 'block';
+    }
+  }
+}
+
+/** 用 label 关联 file，避免 JS 里 input.click() 脱离用户手势导致要点两次；取消时靠 focus 收尾 */
+function setupCustomPortraitFileInput() {
+  const input = document.getElementById('customPortraitInput');
+  if (!input || input.dataset.bound === '1') return;
+  input.dataset.bound = '1';
+
+  let dismissFocus = null;
+
+  function clearDismissFocus() {
+    if (dismissFocus) {
+      window.removeEventListener('focus', dismissFocus);
+      dismissFocus = null;
+    }
+  }
+
+  input.addEventListener('click', () => {
+    pendingCustomPick = true;
+    updateCustomPortraitUI();
+    clearDismissFocus();
+    dismissFocus = () => {
+      setTimeout(() => {
+        if (!pendingCustomPick) return;
+        const f = input.files && input.files[0];
+        if (f) return;
+        pendingCustomPick = false;
+        updateCustomPortraitUI();
+        clearDismissFocus();
+      }, 80);
+    };
+    setTimeout(() => window.addEventListener('focus', dismissFocus), 0);
+  });
+
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    input.value = '';
+    clearDismissFocus();
+    pendingCustomPick = false;
+    updateCustomPortraitUI();
+    if (file) await openCustomPortraitCropperFromFile(file);
+  });
+
+  input.addEventListener('cancel', () => {
+    pendingCustomPick = false;
+    updateCustomPortraitUI();
+    clearDismissFocus();
+  });
+}
+
+function updateCropMulLabel() {
+  const el = document.getElementById('customCropMulValue');
+  if (el && customCropState) el.textContent = Math.round(customCropState.mul * 100) + '%';
+}
+
+function clampCropOffset() {
+  const st = customCropState;
+  if (!st || !st.img) return;
+  const iw = st.img.naturalWidth;
+  const ih = st.img.naturalHeight;
+  const s = st.s0 * st.mul;
+  const w = iw * s;
+  const h = ih * s;
+  if (w >= CANVAS_PORTRAIT.w) {
+    const lim = (w - CANVAS_PORTRAIT.w) / 2;
+    st.offX = Math.max(-lim, Math.min(lim, st.offX));
+  } else {
+    st.offX = 0;
+  }
+  if (h >= CANVAS_PORTRAIT.h) {
+    const lim = (h - CANVAS_PORTRAIT.h) / 2;
+    st.offY = Math.max(-lim, Math.min(lim, st.offY));
+  } else {
+    st.offY = 0;
+  }
+}
+
+function drawCropPreview() {
+  const canvas = document.getElementById('customCropCanvas');
+  const st = customCropState;
+  if (!canvas || !st || !st.img) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0a0c12';
+  ctx.fillRect(0, 0, CANVAS_PORTRAIT.w, CANVAS_PORTRAIT.h);
+  const iw = st.img.naturalWidth;
+  const ih = st.img.naturalHeight;
+  const s = st.s0 * st.mul;
+  const w = iw * s;
+  const h = ih * s;
+  const x = (CANVAS_PORTRAIT.w - w) / 2 + st.offX;
+  const y = (CANVAS_PORTRAIT.h - h) / 2 + st.offY;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, CANVAS_PORTRAIT.w, CANVAS_PORTRAIT.h);
+  ctx.clip();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(st.img, x, y, w, h);
+  ctx.restore();
+}
+
+async function openCustomPortraitCropperFromFile(file) {
+  const reader = new FileReader();
+  const dataUrl = await new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('图片解码失败'));
+    img.src = dataUrl;
+  });
+  const iw = img.naturalWidth;
+  const ih = img.naturalHeight;
+  if (!iw || !ih) {
+    alert('无法读取该图片尺寸');
+    return;
+  }
+  const s0 = Math.max(CANVAS_PORTRAIT.w / iw, CANVAS_PORTRAIT.h / ih);
+  customCropState = {
+    img,
+    fileName: file.name,
+    dataUrl,
+    s0,
+    mul: 1,
+    offX: 0,
+    offY: 0,
+  };
+  const range = document.getElementById('customCropMulRange');
+  if (range) range.value = '1';
+  updateCropMulLabel();
+  clampCropOffset();
+  const modal = document.getElementById('customCropModal');
+  if (modal) {
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+  drawCropPreview();
+}
+
+function cancelCustomCrop() {
+  const modal = document.getElementById('customCropModal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  customCropState = null;
+}
+
+async function applyCustomPortraitFromCropState(st) {
+  if (!st || !st.img) return;
+  const c = document.createElement('canvas');
+  c.width = CANVAS_PORTRAIT.w;
+  c.height = CANVAS_PORTRAIT.h;
+  const ctx = c.getContext('2d');
+  const iw = st.img.naturalWidth;
+  const ih = st.img.naturalHeight;
+  const s = st.s0 * st.mul;
+  const w = iw * s;
+  const h = ih * s;
+  const x = (CANVAS_PORTRAIT.w - w) / 2 + st.offX;
+  const y = (CANVAS_PORTRAIT.h - h) / 2 + st.offY;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, CANVAS_PORTRAIT.w, CANVAS_PORTRAIT.h);
+  ctx.clip();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(st.img, x, y, w, h);
+  ctx.restore();
+  const dataUrl = c.toDataURL('image/png');
+  const outImg = new Image();
+  await new Promise((resolve, reject) => {
+    outImg.onload = () => resolve();
+    outImg.onerror = reject;
+    outImg.src = dataUrl;
+  });
+  customPortraitImage = {
+    fileName: st.fileName,
+    dataUrl,
+    img: outImg,
+    scale: 1,
+  };
+  if (activeTab !== 'portrait') await switchTab('portrait');
+  updateCustomPortraitUI();
+  await render();
+}
+
+function confirmCustomCrop() {
+  const st = customCropState;
+  const modal = document.getElementById('customCropModal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  customCropState = null;
+  if (st) void applyCustomPortraitFromCropState(st);
+}
+
+function setupCustomCropCanvasListeners() {
+  const canvas = document.getElementById('customCropCanvas');
+  const range = document.getElementById('customCropMulRange');
+  if (!canvas) return;
+  let dragging = false;
+  let lastX = 0;
+  let lastY = 0;
+  canvas.addEventListener('pointerdown', e => {
+    if (!customCropState) return;
+    dragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    canvas.classList.add('dragging');
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!dragging || !customCropState) return;
+    const rect = canvas.getBoundingClientRect();
+    const sx = CANVAS_PORTRAIT.w / rect.width;
+    const sy = CANVAS_PORTRAIT.h / rect.height;
+    customCropState.offX += (e.clientX - lastX) * sx;
+    customCropState.offY += (e.clientY - lastY) * sy;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    clampCropOffset();
+    drawCropPreview();
+  });
+  canvas.addEventListener('pointerup', e => {
+    dragging = false;
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    canvas.classList.remove('dragging');
+  });
+  canvas.addEventListener('pointercancel', () => {
+    dragging = false;
+    canvas.classList.remove('dragging');
+  });
+  canvas.addEventListener('wheel', e => {
+    if (!customCropState) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.06 : 0.06;
+    customCropState.mul = Math.max(1, Math.min(3, customCropState.mul + delta));
+    if (range) range.value = String(customCropState.mul);
+    updateCropMulLabel();
+    clampCropOffset();
+    drawCropPreview();
+  }, { passive: false });
+  if (range) {
+    range.addEventListener('input', () => {
+      if (!customCropState) return;
+      customCropState.mul = parseFloat(range.value);
+      updateCropMulLabel();
+      clampCropOffset();
+      drawCropPreview();
+    });
+  }
+}
+
+function setCustomPortraitScale(value) {
+  const scale = Math.max(0.2, Math.min(3, parseFloat(value || '1')));
+  if (customPortraitImage) {
+    customPortraitImage.scale = scale;
+    render();
+  }
+  updateCustomPortraitUI();
+}
+
+async function clearCustomPortraitImage() {
+  customPortraitImage = null;
+  updateCustomPortraitUI();
+  await render();
+}
+
+/** 素材列表（必须是数组，否则 fd.find 会抛错导致预设应用中断、肖像层未写入） */
+function layerListFor(cat) {
+  if (PORTRAIT_CATS.includes(cat)) {
+    const a = fileData.portrait[cat];
+    return Array.isArray(a) ? a : [];
+  }
+  const a = fileData.nameplate[cat];
+  return Array.isArray(a) ? a : [];
+}
+
+async function applyPreset(type, name) {
+  if (!name) return;
+  if (!presets || !Array.isArray(presets.banner) || !Array.isArray(presets.charcard)) return;
+
+  const list = type === 'banner' ? presets.banner : presets.charcard;
+  const preset = list.find(p => p.name === name);
+  if (!preset) return;
+
+  if (type === 'charcard') {
+    // 先检查是否有同名肖像预设
+    const bannerPreset = presets.banner.find(p => p.name === name);
+    // 清空所有选择
+    [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => {
+      selected[c] = null;
+      const el = document.getElementById('selected-' + c);
+      if (el) { el.src = ''; el.style.display = 'none'; }
+    });
+    // 如果同名肖像预设存在，先加载肖像图层
+    if (bannerPreset) {
+      for (const layer of bannerPreset.layers) {
+        const cat = layer.cat;
+        const id = layer.id;
+        if (!id) continue;
+        const fd = layerListFor(cat);
+        const item = fd.find(f => f.id === String(id));
+        if (!item) { console.log('[preset] 未找到', cat, id); continue; }
+        await ensureLoaded(item.path);
+        selected[cat] = { id: item.id, file: item.file, path: item.path };
+        const el = document.getElementById('selected-' + cat);
+        if (el) { el.src = item.path; el.style.display = 'block'; }
+      }
+    }
+    // 加载铭牌预设中的图层（含肖像三分类时须从 portrait 取素材表，不能只用 nameplate）
+    for (const layer of preset.layers) {
+      const cat = layer.cat;
+      const id = layer.id;
+      if (!id) continue;
+      const fd = layerListFor(cat);
+      const item = fd.find(f => f.id === String(id));
+      if (!item) { console.log('[preset] 未找到', cat, id); continue; }
+      await ensureLoaded(item.path);
+      selected[cat] = { id: item.id, file: item.file, path: item.path };
+      const el = document.getElementById('selected-' + cat);
+      if (el) { el.src = item.path; el.style.display = 'block'; }
+    }
+  } else {
+    // 肖像预设：只清空和加载肖像图层，不动铭牌
+    [...PORTRAIT_CATS].forEach(c => {
+      selected[c] = null;
+      const el = document.getElementById('selected-' + c);
+      if (el) { el.src = ''; el.style.display = 'none'; }
+    });
+    for (const layer of preset.layers) {
+      const cat = layer.cat;
+      const id = layer.id;
+      if (!id) continue;
+      const fd = layerListFor(cat);
+      const item = fd.find(f => f.id === String(id));
+      if (!item) { console.log('[preset] 未找到', cat, id); continue; }
+      await ensureLoaded(item.path);
+      selected[cat] = { id: item.id, file: item.file, path: item.path };
+      const el = document.getElementById('selected-' + cat);
+      if (el) { el.src = item.path; el.style.display = 'block'; }
+    }
+  }
+
+  renderPortraitSections();
+  renderNameplateSections();
+  if (type === 'charcard') await switchTab('full');
+  else await switchTab('portrait');
+}
+
+function prevPreset(type) {
+  const sel = document.getElementById(type === 'banner' ? 'presetBanner' : 'presetChar');
+  const opts = Array.from(sel.options).filter(o => o.value);
+  if (opts.length === 0) return;
+  const curIdx = opts.findIndex(o => o.value === sel.value);
+  const prevIdx = curIdx <= 0 ? opts.length - 1 : curIdx - 1;
+  sel.value = opts[prevIdx].value;
+  void applyPreset(type, sel.value);
+}
+
+function nextPreset(type) {
+  const sel = document.getElementById(type === 'banner' ? 'presetBanner' : 'presetChar');
+  const opts = Array.from(sel.options).filter(o => o.value);
+  if (opts.length === 0) return;
+  const curIdx = opts.findIndex(o => o.value === sel.value);
+  const nextIdx = curIdx >= opts.length - 1 ? 0 : curIdx + 1;
+  sel.value = opts[nextIdx].value;
+  void applyPreset(type, sel.value);
+}
+
+// ============================================================
+// 渲染
+// ============================================================
+async function renderAll() {
+  renderPortraitSections();
+  renderNameplateSections();
+  await render();
+  centerView();
+}
+
+function renderPortraitSections() {
+  const container = document.getElementById('portraitSections');
+  container.innerHTML = '';
+  PORTRAIT_CATS.forEach(cat => {
+    const files = fileData.portrait[cat] || [];
+    container.appendChild(buildSection(cat, files));
+  });
+}
+
+function renderNameplateSections() {
+  const container = document.getElementById('nameplateSections');
+  container.innerHTML = '';
+  // 铭牌内的分类
+  const npCats = [...NAMEPLATE_CATS, '肖像外框'];
+  npCats.forEach(cat => {
+    const files = fileData.nameplate[cat] || [];
+    container.appendChild(buildSection(cat, files));
+  });
+}
+
+function buildSection(cat, files) {
+  const sel = selected[cat];
+  const coord = LAYER_COORDS[cat];
+  const posStr = coord ? `(${coord.x}, ${coord.y})` : '';
+
+  const section = document.createElement('div');
+  section.className = 'layer-section' + (files.length > 0 ? ' open' : '');
+  section.id = 'sec-' + cat;
+  section.innerHTML = `
+    <div class="section-header" onclick="toggleSection('${cat}')">
+      <div class="sname">
+        <div class="check-dot ${sel ? 'checked' : ''}" id="chk-${cat}"></div>
+        <span>${cat}</span>
+      </div>
+      <div class="section-right">
+        ${posStr ? `<span class="coord-tag">${posStr}</span>` : ''}
+        ${files.length > 0 ? `<span class="coord-tag">${files.length}</span>` : ''}
+        <span class="arrow">&#9654;</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="thumb-row" id="row-${cat}">
+        ${files.length === 0 ? '<div class="no-imgs">暂无素材</div>' : ''}
+      </div>
+    </div>
+  `;
+
+  const row = section.querySelector(`[id="row-${cat}"]`);
+  files.forEach(item => {
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb-item' + (sel && sel.id === item.id ? ' selected' : '');
+    thumb.dataset.thumbId = String(item.id);
+    thumb.title = item.name || item.file;
+    thumb.innerHTML = `
+      <img src="${iconImgSrc(item.path)}" alt="${item.name || item.id}" loading="lazy" decoding="async" onerror="this.closest('.thumb-item')?.classList.add('thumb-missing')">
+      <div class="tnum">${item.name || item.id}</div>
+    `;
+    thumb.onclick = () => pickItem(cat, item);
+    row.appendChild(thumb);
+  });
+  return section;
+}
+
+function toggleSection(cat) {
+  const el = document.getElementById('sec-' + cat);
+  if (el) el.classList.toggle('open');
+}
+
+async function pickItem(cat, item) {
+  const wasSelected = selected[cat] && selected[cat].id === item.id;
+  
+  // 铭牌装饰物/B 互斥
+  if (cat === '铭牌装饰物') {
+    selected['铭牌装饰物B'] = null;
+    const r2 = document.getElementById('row-铭牌装饰物B');
+    if (r2) r2.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('selected'));
+    const chk2 = document.getElementById('chk-铭牌装饰物B');
+    if (chk2) chk2.className = 'check-dot';
+  } else if (cat === '铭牌装饰物B') {
+    selected['铭牌装饰物'] = null;
+    const r2 = document.getElementById('row-铭牌装饰物');
+    if (r2) r2.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('selected'));
+    const chk2 = document.getElementById('chk-铭牌装饰物');
+    if (chk2) chk2.className = 'check-dot';
+  }
+  
+  // 先清除该分类下所有缩略图的高亮
+  const row = document.getElementById('row-' + cat);
+  if (row) {
+    row.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('selected'));
+  }
+  
+  if (wasSelected) {
+    // 点击已选中的 → 取消选择
+    selected[cat] = null;
+  } else {
+    // 选中新的
+    selected[cat] = item;
+    if (row) {
+      row.querySelectorAll('.thumb-item').forEach(t => {
+        if (t.dataset.thumbId === String(item.id)) t.classList.add('selected');
+      });
+    }
+  }
+  
+  const chk = document.getElementById('chk-' + cat);
+  if (chk) chk.className = 'check-dot' + (selected[cat] ? ' checked' : '');
+
+  const coord = LAYER_COORDS[cat];
+  if (selected[cat] && coord) {
+    if (coord.canvas === 'portrait') {
+      if (activeTab !== 'portrait') await switchTab('portrait');
+    } else if (coord.canvas === 'nameplate') {
+      if (activeTab !== 'full') await switchTab('full');
+    }
+  }
+
+  await render();
+}
+
+function setPortraitSide(side) {
+  portraitSide = side;
+  document.getElementById('sideLeft').classList.toggle('active', side === 'left');
+  document.getElementById('sideRight').classList.toggle('active', side === 'right');
+  render();
+}
+
+async function switchTab(tab) {
+  activeTab = tab;
+  await render();
+  centerView();
+}
+
+async function switchPanelTab(panel) {
+  activePanel = panel;
+  document.getElementById('pTabPortrait').classList.toggle('active', panel === 'portrait');
+  document.getElementById('pTabNameplate').classList.toggle('active', panel === 'nameplate');
+  document.getElementById('portraitPanel').style.display  = panel === 'portrait'  ? '' : 'none';
+  document.getElementById('nameplatePanel').style.display = panel === 'nameplate' ? '' : 'none';
+  if (panel === 'portrait') await switchTab('portrait');
+  else await switchTab('full');
+}
+
+async function clearAll() {
+  [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => { selected[c] = null; });
+  customPortraitImage = null;
+  updateCustomPortraitUI();
+  await renderAll();
+}
+
+// ============================================================
+// 画布渲染
+// ============================================================
+function scheduleLayerLoadingOverlay() {
+  if (layerLoadingShowTimer) return;
+  layerLoadingShowTimer = setTimeout(() => {
+    layerLoadingShowTimer = null;
+    if (layerRenderDepth > 0) {
+      const el = document.getElementById('layerLoadingOverlay');
+      if (el) {
+        el.classList.add('visible');
+        el.setAttribute('aria-hidden', 'false');
+      }
+    }
+  }, 100);
+}
+
+function cancelLayerLoadingOverlayTimer() {
+  if (layerLoadingShowTimer) {
+    clearTimeout(layerLoadingShowTimer);
+    layerLoadingShowTimer = null;
+  }
+}
+
+function hideLayerLoadingOverlay() {
+  cancelLayerLoadingOverlayTimer();
+  const el = document.getElementById('layerLoadingOverlay');
+  if (el) {
+    el.classList.remove('visible');
+    el.setAttribute('aria-hidden', 'true');
+  }
+}
+
+async function render() {
+  layerRenderDepth++;
+  scheduleLayerLoadingOverlay();
+  try {
+    if (activeTab === 'portrait') {
+      await renderPortraitOnly();
+    } else {
+      await renderFull();
+    }
+    updateStatus();
+  } finally {
+    layerRenderDepth--;
+    if (layerRenderDepth === 0) {
+      hideLayerLoadingOverlay();
+    }
+  }
+}
+
+function updateStatus() {
+  const count = Object.values(selected).filter(v => v !== null).length + (customPortraitImage ? 1 : 0);
+  document.getElementById('statusBar').textContent = `已选 ${count} 层`;
+}
+
+function getCustomPortraitDrawRect() {
+  if (!customPortraitImage || !customPortraitImage.img) return null;
+  const img = customPortraitImage.img;
+  const scale = customPortraitImage.scale || 1;
+  const width = Math.round(img.naturalWidth * scale);
+  const height = Math.round(img.naturalHeight * scale);
+  const x = Math.round((CANVAS_PORTRAIT.w - width) / 2);
+  const y = Math.round((CANVAS_PORTRAIT.h - height) / 2);
+  return { x, y, width, height };
+}
+
+async function drawCustomPortraitImage(ctx) {
+  if (!customPortraitImage || !customPortraitImage.img) return;
+  const rect = getCustomPortraitDrawRect();
+  if (!rect) return;
+  ctx.drawImage(customPortraitImage.img, rect.x, rect.y, rect.width, rect.height);
+}
+
+function canvasToPngDataUrl(canvas) {
+  return canvas.toDataURL('image/png');
+}
+
+async function createSystemLayerData(item, options = {}) {
+  if (!item) return null;
+  await ensureLoaded(item.path);
+  const img = imgCache[item.path];
+  if (!img) return null;
+
+  const scale = options.scale || 1;
+  const width = Math.round(img.naturalWidth * scale);
+  const height = Math.round(img.naturalHeight * scale);
+  const c = document.createElement('canvas');
+  c.width = width;
+  c.height = height;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, 0, 0, width, height);
+
+  return {
+    name: options.name || item.name || item.id || 'Layer',
+    x: Math.round(options.x || 0),
+    y: Math.round(options.y || 0),
+    width,
+    height,
+    rgbaData: canvasToPngDataUrl(c),
+    sourceType: options.sourceType || 'system',
+  };
+}
+
+async function createCustomPortraitLayerData(portraitOrigin) {
+  if (!customPortraitImage || !customPortraitImage.img) return null;
+  const rect = getCustomPortraitDrawRect();
+  if (!rect) return null;
+
+  const c = document.createElement('canvas');
+  c.width = rect.width;
+  c.height = rect.height;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(customPortraitImage.img, 0, 0, rect.width, rect.height);
+
+  return {
+    name: '自定义图片',
+    x: portraitOrigin.x + rect.x,
+    y: portraitOrigin.y + rect.y,
+    width: rect.width,
+    height: rect.height,
+    rgbaData: canvasToPngDataUrl(c),
+    sourceType: 'custom',
+  };
+}
+
+async function collectLayeredExportData() {
+  const layers = [];
+  // 分层 ZIP：肖像三图层与自定义图锚点与完整预览嵌入一致（右 1444,300 / 左 604,300）
+  const zipPortrait = PORTRAIT_EMBED[portraitSide];
+
+  const prefixDefs = [
+    { cat: '铭牌背衬', x: 0, y: 0 },
+    { cat: '铭牌底色', x: 540, y: 300 },
+    { cat: '铭牌花纹', x: 540, y: 300 },
+  ];
+  const suffixDefs = [
+    { cat: '铭牌外框', x: 320, y: 172 },
+    { cat: '肖像外框', x: portraitSide === 'right' ? 1260 : 420, y: 0 },
+    { cat: '铭牌顶部装饰', x: 320, y: 172 },
+    { cat: '铭牌底部装饰', x: 320, y: 956 },
+    { cat: '铭牌装饰物', x: 1700, y: 763 },
+    { cat: '铭牌装饰物B', x: 1764, y: 824 },
+  ];
+
+  for (const def of prefixDefs) {
+    const item = selected[def.cat];
+    const coord = LAYER_COORDS[def.cat];
+    const layer = await createSystemLayerData(item, {
+      name: def.cat,
+      x: def.x,
+      y: def.y,
+      scale: coord && coord.scale !== undefined ? coord.scale : 1,
+    });
+    if (layer) layers.push(layer);
+  }
+
+  // 铭牌花纹 → 铭牌外框 之间：肖像三图层分开导出，锚点 zipPortrait；自定义图在背景与装饰框之间
+  const portraitZipCats = ['肖像背景', '肖像装饰框', '肖像装饰物'];
+  for (const cat of portraitZipCats) {
+    if (cat === '肖像装饰框') {
+      const customLayer = await createCustomPortraitLayerData(zipPortrait);
+      if (customLayer) layers.push(customLayer);
+    }
+    const item = selected[cat];
+    const layer = await createSystemLayerData(item, {
+      name: cat,
+      x: zipPortrait.x,
+      y: zipPortrait.y,
+      scale: 1,
+    });
+    if (layer) layers.push(layer);
+  }
+
+  for (const def of suffixDefs) {
+    const item = selected[def.cat];
+    const coord = LAYER_COORDS[def.cat];
+    const layer = await createSystemLayerData(item, {
+      name: def.cat,
+      x: def.x,
+      y: def.y,
+      scale: coord && coord.scale !== undefined ? coord.scale : 1,
+    });
+    if (layer) layers.push(layer);
+  }
+
+  return layers;
+}
+
+// 渲染「肖像画布」标签页（只看 512×840）
+async function renderPortraitOnly() {
+  const canvas = document.getElementById('mainCanvas');
+  canvas.width  = CANVAS_PORTRAIT.w;
+  canvas.height = CANVAS_PORTRAIT.h;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, CANVAS_PORTRAIT.w, CANVAS_PORTRAIT.h);
+  ctx.imageSmoothingEnabled = false;
+
+  const bg = selected['肖像背景'];
+  if (bg) await drawImgFull(ctx, bg.path);
+  await drawCustomPortraitImage(ctx);
+  const frame = selected['肖像装饰框'];
+  if (frame) await drawImgFull(ctx, frame.path);
+  const deco = selected['肖像装饰物'];
+  if (deco) await drawImgFull(ctx, deco.path);
+}
+
+// 渲染「完整预览」标签页（2560×1440）
+async function renderFull() {
+  const canvas = document.getElementById('mainCanvas');
+  canvas.width  = CANVAS_FULL.w;
+  canvas.height = CANVAS_FULL.h;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, CANVAS_FULL.w, CANVAS_FULL.h);
+  ctx.imageSmoothingEnabled = false;
+
+  // --- 1. 铭牌背景层 ---
+  await drawLayer(ctx, '铭牌背衬');
+  await drawLayer(ctx, '铭牌底色');
+  await drawLayer(ctx, '铭牌花纹');
+
+  // --- 2. 肖像画布嵌入铭牌（右侧或左侧） ---
+  const embedPos = PORTRAIT_EMBED[portraitSide];
+  await drawPortraitOnCtx(ctx, embedPos.x, embedPos.y);
+
+  // --- 3. 铭牌外框 ---
+  await drawLayer(ctx, '铭牌外框');
+
+  // --- 4. 肖像外框（197），按左右侧放置在铭牌画布上 ---
+  await drawPortraitFrameOnNameplate(ctx);
+
+  // --- 5. 铭牌装饰层 ---
+  await drawLayer(ctx, '铭牌顶部装饰');
+  await drawLayer(ctx, '铭牌底部装饰');
+  await drawLayer(ctx, '铭牌装饰物');
+  await drawLayer(ctx, '铭牌装饰物B');
+}
+
+// 在指定 ctx 的 (px, py) 位置绘制肖像画布
+async function drawPortraitOnCtx(ctx, px, py) {
+  const pc = document.createElement('canvas');
+  pc.width = CANVAS_PORTRAIT.w; pc.height = CANVAS_PORTRAIT.h;
+  const pctx = pc.getContext('2d');
+  pctx.imageSmoothingEnabled = false;
+
+  const bg = selected['肖像背景'];
+  if (bg) await drawImgFull(pctx, bg.path);
+  await drawCustomPortraitImage(pctx);
+  const frame = selected['肖像装饰框'];
+  if (frame) await drawImgFull(pctx, frame.path);
+  const deco = selected['肖像装饰物'];
+  if (deco) await drawImgFull(pctx, deco.path);
+
+  ctx.drawImage(pc, px, py);
+}
+
+// 肖像外框（197）绘制到铭牌画布
+async function drawPortraitFrameOnNameplate(ctx) {
+  const item = selected['肖像外框'];
+  if (!item) return;
+  const pos = PORTRAIT_FRAME_ON_NAMEPLATE[portraitSide];
+  await drawImgFullAt(ctx, item.path, pos.x, pos.y);
+}
+
+// ============================================================
+// 绘图工具（直接绘制原始尺寸，不缩放）
+// ============================================================
+async function drawLayer(ctx, cat) {
+  const item = selected[cat];
+  if (!item) return;
+  const c = LAYER_COORDS[cat];
+  if (c.scale !== undefined) {
+    await drawImgScaled(ctx, item.path, c.x, c.y, c.scale);
+  } else {
+    await drawImgFullAt(ctx, item.path, c.x, c.y);
+  }
+}
+
+// 在 ctx 的 (px, py) 位置以原始尺寸绘制图片
+async function drawImgFullAt(ctx, imgPath, px, py) {
+  const img = await loadImg(imgPath);
+  if (!img) return;
+  ctx.drawImage(img, px, py);
+}
+
+// 以 scale 比例缩放绘制图片
+async function drawImgScaled(ctx, imgPath, px, py, scale) {
+  const img = await loadImg(imgPath);
+  if (!img) return;
+  const sw = Math.round(img.naturalWidth * scale);
+  const sh = Math.round(img.naturalHeight * scale);
+  ctx.drawImage(img, px, py, sw, sh);
+}
+
+// 在 ctx 中心位置以原始尺寸绘制（用于画布自身内居中）
+async function drawImgFull(ctx, imgPath) {
+  const img = await loadImg(imgPath);
+  if (!img) return;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const dx = iw <= ctx.canvas.width  ? (ctx.canvas.width  - iw) / 2 : 0;
+  const dy = ih <= ctx.canvas.height ? (ctx.canvas.height - ih) / 2 : 0;
+  ctx.drawImage(img, dx, dy);
+}
+
+// 默认走图床；本机 node server.js 时 /api/files 会带 _meta.imgBase=/img，用本地解包避免「表里有号但图床无图」
+const CDN = 'https://portable-icon.2513985996.workers.dev';
+let ICON_IMG_BASE = CDN;
+
+function iconImgSrc(relPath) {
+  const p = String(relPath || '').replace(/^\//, '');
+  const b = String(ICON_IMG_BASE || CDN).replace(/\/$/, '');
+  return b + '/' + p;
+}
+
+function loadImg(imgPath) {
+  return new Promise(resolve => {
+    if (imgCache[imgPath]) { resolve(imgCache[imgPath]); return; }
+    const img = new Image();
+    // 关键：跨域图片需设置 CORS，否则导出时 canvas 会被 taint，toDataURL/toBlob 会直接抛异常
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { imgCache[imgPath] = img; resolve(img); };
+    img.onerror = () => resolve(null);
+    img.src = iconImgSrc(imgPath);
+  });
+}
+
+// ============================================================
+// 画布变换（缩放 + 拖拽）
+// ============================================================
+function applyTransform() {
+  const container = document.getElementById('canvasContainer');
+  const canvas   = document.getElementById('mainCanvas');
+  const vp       = document.getElementById('canvasViewport');
+  const vw = vp.clientWidth, vh = vp.clientHeight;
+  const cw = canvas.width, ch = canvas.height;
+
+  // 容器保持画布物理像素
+  container.style.width  = cw + 'px';
+  container.style.height = ch + 'px';
+
+  // scale(zoom) 变换：以画布左上角为原点
+  const dx = vw > cw ? (vw - cw) / 2 : currentOffsetX;
+  const dy = vh > ch ? (vh - ch) / 2 : currentOffsetY;
+  container.style.transform = `scale(${zoomLevel})`;
+  container.style.transformOrigin = '0 0';
+  container.style.position = 'absolute';
+  container.style.left = Math.round(dx) + 'px';
+  container.style.top  = Math.round(dy) + 'px';
+}
+
+function setZoom(val) {
+  zoomLevel = parseFloat(val);
+  applyTransform();
+  document.getElementById('zoomSelect').value = val;
+}
+
+function zoom(dir) {
+  const steps = [0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 1.0];
+  const cur = zoomLevel;
+  let idx = steps.findIndex(s => s >= cur);
+  if (idx < 0) idx = 3;
+  idx = Math.max(0, Math.min(steps.length - 1, idx + dir));
+  setZoom(steps[idx]);
+}
+
+function centerView() {
+  currentOffsetX = 0; currentOffsetY = 0;
+  applyTransform();
+}
+
+function resetView() {
+  zoomLevel = 0.2;
+  document.getElementById('zoomSelect').value = '0.2';
+  centerView();
+}
+
+// 拖拽
+const viewport = document.getElementById('canvasViewport');
+viewport.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  isDragging = true;
+  dragStartX = e.clientX - currentOffsetX;
+  dragStartY = e.clientY - currentOffsetY;
+  viewport.classList.add('dragging');
+  e.preventDefault();
+});
+document.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  currentOffsetX = e.clientX - dragStartX;
+  currentOffsetY = e.clientY - dragStartY;
+  applyTransform();
+});
+document.addEventListener('mouseup', () => {
+  if (isDragging) { isDragging = false; viewport.classList.remove('dragging'); }
+});
+
+viewport.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoom(e.deltaY > 0 ? -1 : 1);
+}, { passive: false });
+window.addEventListener('resize', () => applyTransform());
+
+// ============================================================
+// 导出
+// ============================================================
+function exportCanvas() {
+  try {
+    const canvas = document.getElementById('mainCanvas');
+    triggerDownload(canvas, '_' + canvas.width + 'x' + canvas.height + '.png');
+  } catch (e) {
+    console.error('[exportCanvas] failed:', e);
+    alert('导出 PNG 失败：' + (e?.message || e));
+  }
+}
+
+function triggerDownload(canvas, suffix) {
+  const link = document.createElement('a');
+  link.download = 'composite_' + Date.now() + suffix;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+// ============================================================
+// PSD 导出用的完整合成
+// ============================================================
+async function buildFullComposite(ctx) {
+  // 1. 铭牌基础
+  await drawLayer(ctx, '铭牌背衬');
+  await drawLayer(ctx, '铭牌底色');
+  await drawLayer(ctx, '铭牌花纹');
+
+  // 2. 肖像画布嵌入
+  const embedPos = PORTRAIT_EMBED[portraitSide];
+  await drawPortraitOnCtx(ctx, embedPos.x, embedPos.y);
+
+  // 3. 铭牌外框
+  await drawLayer(ctx, '铭牌外框');
+
+  // 4. 肖像外框
+  await drawPortraitFrameOnNameplate(ctx);
+
+  // 5. 装饰层
+  await drawLayer(ctx, '铭牌顶部装饰');
+  await drawLayer(ctx, '铭牌底部装饰');
+  await drawLayer(ctx, '铭牌装饰物');
+}
+
+function ensureLoaded(imgPath) {
+  if (imgCache[imgPath]) return Promise.resolve();
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { imgCache[imgPath] = img; resolve(); };
+    img.onerror = () => resolve();
+    img.src = iconImgSrc(imgPath);
+  });
+}
+
+// ========== 导出 PSD ==========
+async function exportPSD() {
+  const w = CANVAS_FULL.w;
+  const h = CANVAS_FULL.h;
+  const layers = await collectLayeredExportData();
+
+  if (layers.length === 0) {
+    alert('请先选择至少一个图层');
+    return;
+  }
+
+  const statusBar = document.getElementById('statusBar');
+  statusBar.textContent = '正在生成 PSD 文件…';
+
+  try {
+    const resp = await fetch('/api/export-psd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layers, canvasWidth: w, canvasHeight: h })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error('服务器错误: ' + (err.error || resp.status));
+    }
+
+    const blob = await resp.blob();
+    if (blob.size < 1000) throw new Error('PSD 文件过小：' + blob.size + ' 字节');
+    const link = document.createElement('a');
+    link.download = 'composite_' + Date.now() + '.psd';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (e) {
+    alert('PSD 导出失败：' + e.message);
+  } finally {
+    statusBar.textContent = '就绪';
+  }
+}
+
+// ========== 导出 PSD (JSX) ==========
+// 由 Photoshop 执行脚本生成 PSD，绕过二进制格式问题
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function exportPSDJSX() {
+  const statusBar = document.getElementById('statusBar');
+  try {
+    statusBar.textContent = '正在生成 JSX 脚本…';
+
+    const w = CANVAS_FULL.w;
+    const h = CANVAS_FULL.h;
+    const layers = await collectLayeredExportData();
+
+    if (layers.length === 0) {
+      alert('请先选择至少一个图层');
+      return;
+    }
+
+    console.log('[exportPSDJSX] Total layers:', layers.length, layers.map(l => l.name + '@' + l.width + 'x' + l.height).join(', '));
+
+    const resp = await fetch('/api/export-psd-jsx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layers, canvasWidth: w, canvasHeight: h })
+    });
+
+    if (!resp.ok) throw new Error('服务器错误: ' + resp.status);
+
+    const blob = await resp.blob();
+    const link = document.createElement('a');
+    link.download = 'composite_' + Date.now() + '.jsx';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (e) {
+    console.error('[exportPSDJSX] failed:', e);
+    alert('JSX 导出失败：' + (e?.message || e));
+  } finally {
+    statusBar.textContent = '就绪';
+  }
+}
+
+async function exportLayeredZip() {
+  if (!isWebRuntime()) return;
+  const statusBar = document.getElementById('statusBar');
+  try {
+    statusBar.textContent = '正在生成分层 ZIP…';
+    const layers = await collectLayeredExportData();
+    if (layers.length === 0) {
+      alert('请先选择至少一个图层');
+      return;
+    }
+
+    const resp = await fetch('/api/export-layered-zip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        layers,
+        canvasWidth: CANVAS_FULL.w,
+        canvasHeight: CANVAS_FULL.h
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || ('服务器错误: ' + resp.status));
+    }
+
+    const blob = await resp.blob();
+    const link = document.createElement('a');
+    link.download = 'layered_export_' + Date.now() + '.zip';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (e) {
+    console.error('[exportLayeredZip] failed:', e);
+    alert('导出分层 ZIP 失败：' + (e?.message || e));
+  } finally {
+    statusBar.textContent = '就绪';
+  }
+}
+
+// 安全的 base64 编码（分块处理，避免栈溢出）
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const CHUNK = 8192;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK, bytes.length));
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  return btoa(binary);
+}
+
+
+// ============================================================
+// 启动
+// ============================================================
+setupCustomCropCanvasListeners();
+applyThemeFromStorage();
+init();
+</script>
+
+<!-- Settings Modal -->
+<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1e1e2e;padding:28px;border-radius:12px;min-width:360px;max-width:480px;color:#cdd6f4;font-family:sans-serif;">
+    <h2 style="margin:0 0 20px;font-size:18px;">⚙ 设置</h2>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:13px;color:#a6adc8;margin-bottom:6px;">素材文件夹</div>
+      <div id="settingsMaterials" style="font-size:12px;color:#89b4fa;word-break:break-all;margin-bottom:6px;padding:6px;background:#181825;border-radius:6px;">—</div>
+      <button class="btn btn-secondary" onclick="pickMaterials()" style="font-size:12px;padding:4px 12px;">更改素材文件夹</button>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13px;color:#a6adc8;margin-bottom:6px;">导出目录</div>
+      <div id="settingsExport" style="font-size:12px;color:#89b4fa;word-break:break-all;margin-bottom:6px;padding:6px;background:#181825;border-radius:6px;">—</div>
+      <button class="btn btn-secondary" onclick="pickExport()" style="font-size:12px;padding:4px 12px;">更改导出目录</button>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeSettings()" style="font-size:13px;padding:6px 16px;">关闭</button>
+      <button class="btn btn-primary" onclick="openExportDir()" style="font-size:13px;padding:6px 16px;">打开导出目录</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// === Electron / Settings ===
+async function loadSettings() {
+  if (typeof electronAPI !== 'undefined') {
+    const cfg = await electronAPI.getConfig();
+    document.getElementById('settingsMaterials').textContent = cfg.materialsPath || '未设置';
+    document.getElementById('settingsExport').textContent    = cfg.exportPath    || '未设置';
+  }
+}
+
+function openSettings() {
+  loadSettings();
+  document.getElementById('settingsModal').style.display = 'flex';
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+
+async function pickMaterials() {
+  if (typeof electronAPI === 'undefined') { alert('仅在打包版本中可用'); return; }
+  const res = await electronAPI.pickMaterials();
+  if (res.success) location.reload();
+}
+
+async function pickExport() {
+  if (typeof electronAPI === 'undefined') { alert('仅在打包版本中可用'); return; }
+  await electronAPI.pickExport();
+  loadSettings();
+}
+
+function openExportDir() {
+  if (typeof electronAPI !== 'undefined') electronAPI.openExport();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const cropModal = document.getElementById('customCropModal');
+  if (cropModal && cropModal.classList.contains('open')) {
+    cancelCustomCrop();
+    return;
+  }
+  const modal = document.getElementById('settingsModal');
+  if (modal && modal.style.display === 'flex') {
+    closeSettings();
+    return;
+  }
+  if (pendingCustomPick) {
+    pendingCustomPick = false;
+    updateCustomPortraitUI();
+    return;
+  }
+});
+
+// 网页版（非Electron）隐藏设置按钮，保留昼夜切换
+if (typeof electronAPI === 'undefined') {
+  const sb = document.getElementById('settingsBtn');
+  if (sb) sb.style.display = 'none';
+}
+</script>
+</body>
+</html>
