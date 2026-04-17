@@ -1,3 +1,6 @@
+# 不上传到远程，仅本地说明
+README.md
+
 node_modules/
 out/
 dist/
