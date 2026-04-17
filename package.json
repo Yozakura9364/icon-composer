@@ -3,6 +3,7 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "pngjs": "^7.0.0"
+    "pngjs": "^7.0.0",
+    "yazl": "^3.3.1"
   }
 }

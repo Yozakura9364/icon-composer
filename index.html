@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="icon-composer-base" content="@@ICON_APP_BASE@@">
 <title>铭牌生成器</title>
+<link rel="dns-prefetch" href="https://portable-icon.2513985996.workers.dev">
+<link rel="preconnect" href="https://portable-icon.2513985996.workers.dev" crossorigin>
 <style>
 :root {
   --bg: #0f1117;
@@ -65,6 +68,12 @@ header .subtitle { font-size: 11px; color: var(--text-dim); }
   gap: 4px;
   align-items: center;
 }
+#mobileActionBtn {
+  display: none;
+  font-size: 12px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
 
 /* === 主布局 === */
 .main { display: flex; flex: 1; overflow: hidden; }
@@ -78,7 +87,7 @@ header .subtitle { font-size: 11px; color: var(--text-dim); }
 }
 .canvas-viewport {
   flex: 1; overflow: hidden; position: relative;
-  width: 100%; cursor: grab;
+  width: 100%; cursor: default;
   display: flex; align-items: center; justify-content: center;
 }
 .canvas-viewport.dragging { cursor: grabbing; }
@@ -90,6 +99,33 @@ canvas { image-rendering: auto; }
 .canvas-controls {
   display: flex; align-items: center; gap: 10px;
   flex-wrap: wrap; justify-content: center; flex-shrink: 0;
+}
+.canvas-controls .desktop-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  width: 100%;
+}
+.mobile-action-list {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 178px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.15);
+  z-index: 20;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-action-list.open { display: flex; }
+.mobile-action-list .btn {
+  width: 100%;
+  white-space: nowrap;
 }
 .zoom-ctrl { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
 .zoom-ctrl button {
@@ -260,6 +296,13 @@ canvas { image-rendering: auto; }
   font-size: 14px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
+.layer-loading-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.45;
+  max-width: 240px;
+}
 
 .crop-modal-backdrop {
   position: fixed;
@@ -331,6 +374,83 @@ canvas { image-rendering: auto; }
 .avatar-pick-wrap:hover .avatar-pick-circle { border-color: var(--accent); transform: scale(1.03); }
 #customPortraitAvatarGlyph { font-size: 26px; color: var(--text-dim); line-height: 1; user-select: none; }
 
+@media (max-width: 768px) {
+  .main { flex-direction: column; }
+  .canvas-area {
+    flex: 0 0 47vh;
+    min-height: 40vh;
+    max-height: 55vh;
+    padding: 10px;
+  }
+  .canvas-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .canvas-controls .zoom-ctrl {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .canvas-controls .desktop-action-buttons {
+    display: none;
+  }
+  #mobileActionBtn {
+    display: inline-flex;
+    align-items: center;
+  }
+  .config-panel {
+    width: 100%;
+    min-width: 0;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--panel);
+    padding: 0 8px;
+  }
+  .panel-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 10px 14px;
+    width: 100%;
+  }
+  .panel-scroll > div,
+  #portraitPanel,
+  #nameplatePanel {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .side-toggle,
+  .group-title,
+  .section-header,
+  .custom-upload-box,
+  .range-wrap {
+    width: 100%;
+  }
+  .thumb-row {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    overflow-y: visible;
+    padding-bottom: 0;
+    -webkit-overflow-scrolling: auto;
+  }
+  .thumb-row::-webkit-scrollbar { height: 7px; }
+  .thumb-row::-webkit-scrollbar-thumb { background: rgba(100,100,100,0.3); border-radius: 4px; }
+  .thumb-item {
+    width: 44px;
+    height: 44px;
+  }
+  .group-title { margin: 8px 0 6px; }
+  .layer-section { margin-bottom: 8px; }
+  .section-header { padding: 10px; }
+  .custom-upload-box { margin-bottom: 10px; }
+}
+
 [data-theme="light"] #presetBanner,
 [data-theme="light"] #presetChar {
   background: var(--card) !important;
@@ -344,12 +464,14 @@ canvas { image-rendering: auto; }
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
   <div>正在扫描素材文件…</div>
+  <div class="layer-loading-hint">高清图片初次加载较慢，请耐心哦</div>
 </div>
 
 <div id="layerLoadingOverlay" class="layer-loading-overlay" aria-hidden="true">
   <div class="layer-loading-box">
     <div class="spinner"></div>
     <div>加载中</div>
+    <div class="layer-loading-hint">高清图片初次加载较慢，请耐心哦</div>
   </div>
 </div>
 
@@ -376,6 +498,14 @@ canvas { image-rendering: auto; }
   <h1>铭牌生成器</h1>
   <div class="subtitle">FF14铭牌DIY</div>
   <div class="header-actions">
+    <button type="button" class="btn btn-primary" id="mobileActionBtn" onclick="toggleMobileActionMenu()">操作 ▾</button>
+    <div class="mobile-action-list" id="mobileActionList" aria-hidden="true">
+      <button class="btn btn-primary" onclick="void exportCanvas(); closeMobileActionMenu();">导出 PNG</button>
+      <button class="btn btn-secondary" onclick="void exportLayeredZip(); closeMobileActionMenu();" style="background:#0ea5e9;">导出分层 ZIP</button>
+      <button class="btn btn-secondary" onclick="void exportPSDJSX(); closeMobileActionMenu();" style="background:#f59e0b;">导出PSD(JSX)</button>
+      <button class="btn btn-ghost" onclick="void clearAll(); closeMobileActionMenu();">清空</button>
+      <button class="btn btn-ghost" id="mobileClearCustomImageBtn" onclick="void clearCustomPortraitImage(); closeMobileActionMenu();" style="display:none;">清空自定义图片</button>
+    </div>
     <button type="button" class="btn btn-ghost" id="themeToggleBtn" onclick="toggleTheme()" title="切换浅色/深色" style="font-size:12px;padding:4px 10px;white-space:nowrap;"><span id="themeToggleIcon">☀</span> 昼夜</button>
     <button type="button" class="btn btn-ghost" id="settingsBtn" onclick="openSettings()" title="设置" style="font-size:16px;padding:4px 8px;">⚙</button>
   </div>
@@ -391,23 +521,26 @@ canvas { image-rendering: auto; }
     </div>
     <div class="canvas-controls">
       <div class="zoom-ctrl">
-        <button onclick="zoom(-1)">−</button>
+        <button type="button" onclick="zoom(-1)">−</button>
         <select id="zoomSelect" onchange="setZoom(this.value)">
-          <option value="0.05">5%</option>
-          <option value="0.1">10%</option>
-          <option value="0.2" selected>20%</option>
-          <option value="0.3">30%</option>
           <option value="0.5">50%</option>
-          <option value="1">100%</option>
+          <option value="0.75">75%</option>
+          <option value="1" selected>100%</option>
+          <option value="1.25">125%</option>
+          <option value="1.5">150%</option>
+          <option value="2">200%</option>
+          <option value="3">300%</option>
         </select>
-        <button onclick="zoom(1)">+</button>
-        <button onclick="resetView()" title="重置视图" style="font-size:11px;width:auto;padding:0 6px;">⊙</button>
+        <button type="button" onclick="zoom(1)">+</button>
+        <button type="button" onclick="resetView()" title="重置缩放" style="font-size:11px;width:auto;padding:0 6px;">⊙</button>
       </div>
-      <button class="btn btn-primary" onclick="exportCanvas()">导出 PNG</button>
-      <button class="btn btn-secondary" id="exportLayeredZipBtn" onclick="exportLayeredZip()" style="display:none;background:#0ea5e9;">导出分层 ZIP</button>
-      <button class="btn btn-secondary" id="exportPsdJsxBtn" onclick="exportPSDJSX()" style="background:#f59e0b;">导出PSD(JSX)</button>
-      <button class="btn btn-ghost" onclick="clearAll()">清空</button>
-      <button class="btn btn-ghost" id="clearCustomImageBtn" onclick="clearCustomPortraitImage()" style="display:none;">清空自定义图片</button>
+      <div class="desktop-action-buttons">
+        <button class="btn btn-primary" onclick="void exportCanvas()">导出 PNG</button>
+        <button class="btn btn-secondary" id="exportLayeredZipBtn" onclick="exportLayeredZip()" style="display:none;background:#0ea5e9;">导出分层 ZIP</button>
+        <button class="btn btn-secondary" id="exportPsdJsxBtn" onclick="exportPSDJSX()" style="background:#f59e0b;">导出PSD(JSX)</button>
+        <button class="btn btn-ghost" onclick="clearAll()">清空</button>
+        <button class="btn btn-ghost" id="clearCustomImageBtn" onclick="clearCustomPortraitImage()" style="display:none;">清空自定义图片</button>
+      </div>
     </div>
     <div id="statusBar">已选 0 层</div>
   </div>
@@ -422,13 +555,6 @@ canvas { image-rendering: auto; }
     <div class="panel-scroll" id="panelScroll">
       <!-- 肖像配置 -->
       <div id="portraitPanel">
-        <div class="side-toggle">
-          <div class="st-label">肖像位置</div>
-          <div class="st-options">
-            <div class="st-btn" id="sideLeft" onclick="setPortraitSide('left')">左侧</div>
-            <div class="st-btn active" id="sideRight" onclick="setPortraitSide('right')">右侧</div>
-          </div>
-        </div>
         <div class="group-title portrait"><div class="dot"></div>肖像图层（512×840）</div>
         <div style="padding:6px 10px; display:flex; gap:4px; align-items:center; overflow:hidden;">
           <button class="btn btn-ghost" onclick="prevPreset('banner')" title="上一个肖像预设" style="flex-shrink:0;">◀</button>
@@ -463,6 +589,13 @@ canvas { image-rendering: auto; }
 
       <!-- 铭牌配置 -->
       <div id="nameplatePanel" style="display:none;">
+        <div class="side-toggle">
+          <div class="st-label">肖像位置</div>
+          <div class="st-options">
+            <div class="st-btn" id="sideLeft" onclick="setPortraitSide('left')">左侧</div>
+            <div class="st-btn active" id="sideRight" onclick="setPortraitSide('right')">右侧</div>
+          </div>
+        </div>
         <div class="group-title nameplate"><div class="dot"></div>铭牌图层（2560×1440）</div>
         <div style="padding:6px 10px; display:flex; gap:4px; align-items:center; overflow:hidden;">
           <button class="btn btn-ghost" onclick="prevPreset('charcard')" title="上一个铭牌预设" style="flex-shrink:0;">◀</button>
@@ -480,6 +613,17 @@ canvas { image-rendering: auto; }
 </div>
 
 <script>
+// ============================================================
+// 子路径：生产环境由 server.js 把 @@ICON_APP_BASE@@ 替换为如 /portable
+// ============================================================
+function appPath(rel) {
+  const m = document.querySelector('meta[name="icon-composer-base"]');
+  const raw = m && m.getAttribute('content') ? String(m.getAttribute('content')).trim() : '';
+  const base = raw.replace(/\/$/, '');
+  const p = rel.startsWith('/') ? rel : '/' + rel;
+  return base ? base + p : p;
+}
+
 // ============================================================
 // 常量定义
 // ============================================================
@@ -538,10 +682,11 @@ const PORTRAIT_FRAME_ON_NAMEPLATE = {
 let fileData = { portrait: {}, nameplate: {} };
 let selected = {};         // { 分类名: {id,file,path} | null }
 let portraitSide = 'right';
-let activeTab = 'portrait'; // 'full' | 'portrait'，与默认展示的肖像侧栏一致
+let activeTab = 'full'; // 预览固定为完整画布
 let activePanel = 'portrait';
-let imgCache = {};         // path -> HTMLImageElement
-let zoomLevel = 0.2;
+let zoomLevel = 1; // 1 = 适配容器后的 100%
+/** 画布与导出均用原图像素尺寸参与 LAYER_COORDS 计算；缩略图单独走 iconImgSrcPreview */
+let imgCacheHd = {};
 let presets = { banner: [], charcard: [] };
 let customPortraitImage = null;
 let pendingCustomPick = false;
@@ -550,25 +695,29 @@ let customCropState = null;
 let layerRenderDepth = 0;
 let layerLoadingShowTimer = null;
 
-// 拖拽状态
-let isDragging = false;
-let dragStartX = 0, dragStartY = 0;
-let currentOffsetX = 0, currentOffsetY = 0;
-
 // ============================================================
 // 初始化
 // ============================================================
 async function init() {
   try {
     const [filesResp, presetsResp] = await Promise.all([
-      fetch('/api/files'),
-      fetch('/api/presets'),
+      fetch(appPath('/api/files')),
+      fetch(appPath('/api/presets')),
     ]);
     const filesPayload = await filesResp.json();
     if (filesPayload._meta && typeof filesPayload._meta.imgBase === 'string') {
       ICON_IMG_BASE = filesPayload._meta.imgBase;
     } else {
       ICON_IMG_BASE = CDN;
+    }
+    if (
+      filesPayload._meta &&
+      typeof filesPayload._meta.previewImgBase === 'string' &&
+      filesPayload._meta.previewImgBase.trim()
+    ) {
+      ICON_PREVIEW_BASE = filesPayload._meta.previewImgBase.trim().replace(/\/$/, '');
+    } else {
+      ICON_PREVIEW_BASE = null;
     }
     fileData = {
       portrait: filesPayload.portrait || {},
@@ -660,9 +809,9 @@ function collectComposerConfigObject() {
     theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark',
     portraitSide,
     activePanel,
-    activeTab,
+    activeTab: 'full',
     zoomLevel,
-    viewOffset: { x: currentOffsetX, y: currentOffsetY },
+    viewOffset: { x: 0, y: 0 },
     presetBanner: pb ? pb.value : '',
     presetChar: pc ? pc.value : '',
     selected: selectedSnap,
@@ -709,7 +858,7 @@ async function applyComposerConfigFromObject(obj) {
         fd.find(f => f.id === String(snap.id) && f.path === snap.path) ||
         fd.find(f => f.id === String(snap.id));
       selected[c] = item || null;
-      if (selected[c]) await ensureLoaded(selected[c].path);
+      if (selected[c]) await loadImgHd(selected[c].path);
     }
   }
 
@@ -738,20 +887,12 @@ async function applyComposerConfigFromObject(obj) {
   if (obj.activePanel === 'nameplate' || obj.activePanel === 'portrait') {
     await switchPanelTab(obj.activePanel);
   }
-  if (obj.activeTab === 'portrait' || obj.activeTab === 'full') {
-    await switchTab(obj.activeTab);
+  await switchTab('full');
+  if (typeof obj.zoomLevel === 'number' && Number.isFinite(obj.zoomLevel)) {
+    setZoom(obj.zoomLevel, false);
+  } else {
+    setZoom(1, false);
   }
-
-  if (typeof obj.zoomLevel === 'number' && !Number.isNaN(obj.zoomLevel)) {
-    zoomLevel = obj.zoomLevel;
-    const zs = document.getElementById('zoomSelect');
-    if (zs) {
-      zs.value = String(zoomLevel);
-      if (![...zs.options].some(o => o.value === zs.value)) zs.value = '0.2';
-    }
-  }
-  if (obj.viewOffset && typeof obj.viewOffset.x === 'number') currentOffsetX = obj.viewOffset.x;
-  if (obj.viewOffset && typeof obj.viewOffset.y === 'number') currentOffsetY = obj.viewOffset.y;
 
   renderPortraitSections();
   renderNameplateSections();
@@ -825,7 +966,7 @@ function triggerLoadComposerConfigFile() {
 function applyThemeFromStorage() {
   let t = localStorage.getItem(THEME_KEY);
   if (t !== 'light' && t !== 'dark') {
-    t = 'dark';
+    t = 'light';
   }
   document.documentElement.setAttribute('data-theme', t);
   const btn = document.getElementById('themeToggleBtn');
@@ -848,6 +989,7 @@ function toggleTheme() {
 
 function updateCustomPortraitUI() {
   const clearBtn = document.getElementById('clearCustomImageBtn');
+  const mobileClearBtn = document.getElementById('mobileClearCustomImageBtn');
   const nameEl = document.getElementById('customPortraitName');
   const scaleInput = document.getElementById('customPortraitScale');
   const scaleValue = document.getElementById('customPortraitScaleValue');
@@ -857,6 +999,7 @@ function updateCustomPortraitUI() {
   if (zipBtn) zipBtn.style.display = isWebRuntime() ? '' : 'none';
   if (jsxBtn) jsxBtn.style.display = isWebRuntime() ? 'none' : '';
   if (clearBtn) clearBtn.style.display = customPortraitImage ? '' : 'none';
+  if (mobileClearBtn) mobileClearBtn.style.display = customPortraitImage ? '' : 'none';
   if (nameEl) nameEl.textContent = customPortraitImage ? customPortraitImage.fileName : '未上传自定义图片';
   if (scaleInput) scaleInput.value = customPortraitImage ? String(customPortraitImage.scale) : '1';
   if (scaleValue) scaleValue.textContent = Math.round((customPortraitImage ? customPortraitImage.scale : 1) * 100) + '%';
@@ -1056,7 +1199,6 @@ async function applyCustomPortraitFromCropState(st) {
     img: outImg,
     scale: 1,
   };
-  if (activeTab !== 'portrait') await switchTab('portrait');
   updateCustomPortraitUI();
   await render();
   schedulePersistComposerConfig();
@@ -1286,7 +1428,7 @@ function buildSection(cat, files) {
   const posStr = coord ? `(${coord.x}, ${coord.y})` : '';
 
   const section = document.createElement('div');
-  section.className = 'layer-section' + (files.length > 0 ? ' open' : '');
+  section.className = 'layer-section';
   section.id = 'sec-' + cat;
   section.innerHTML = `
     <div class="section-header" onclick="toggleSection('${cat}')">
@@ -1314,7 +1456,7 @@ function buildSection(cat, files) {
     thumb.dataset.thumbId = String(item.id);
     thumb.title = item.name || item.file;
     thumb.innerHTML = `
-      <img src="${iconImgSrc(item.path)}" alt="${item.name || item.id}" loading="lazy" decoding="async" onerror="this.closest('.thumb-item')?.classList.add('thumb-missing')">
+      <img src="${iconImgSrcPreview(item.path)}" alt="${item.name || item.id}" loading="lazy" decoding="async" onerror="this.closest('.thumb-item')?.classList.add('thumb-missing')">
       <div class="tnum">${item.name || item.id}</div>
     `;
     thumb.onclick = () => pickItem(cat, item);
@@ -1323,9 +1465,27 @@ function buildSection(cat, files) {
   return section;
 }
 
+function filesForCategory(cat) {
+  if (PORTRAIT_CATS.includes(cat)) return Array.isArray(fileData.portrait[cat]) ? fileData.portrait[cat] : [];
+  return Array.isArray(fileData.nameplate[cat]) ? fileData.nameplate[cat] : [];
+}
+
 function toggleSection(cat) {
   const el = document.getElementById('sec-' + cat);
-  if (el) el.classList.toggle('open');
+  if (!el) return;
+  const willOpen = !el.classList.contains('open');
+  el.classList.toggle('open');
+  if (!willOpen) return;
+  const files = filesForCategory(cat);
+  const n = Math.min(28, files.length);
+  if (n === 0) return;
+  const paths = files.slice(0, n).map(f => f.path);
+  const run = () => { void prefetchImgPaths(paths); };
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(run, { timeout: 1200 });
+  } else {
+    setTimeout(run, 60);
+  }
 }
 
 async function pickItem(cat, item) {
@@ -1368,15 +1528,6 @@ async function pickItem(cat, item) {
   const chk = document.getElementById('chk-' + cat);
   if (chk) chk.className = 'check-dot' + (selected[cat] ? ' checked' : '');
 
-  const coord = LAYER_COORDS[cat];
-  if (selected[cat] && coord) {
-    if (coord.canvas === 'portrait') {
-      if (activeTab !== 'portrait') await switchTab('portrait');
-    } else if (coord.canvas === 'nameplate') {
-      if (activeTab !== 'full') await switchTab('full');
-    }
-  }
-
   await render();
   schedulePersistComposerConfig();
 }
@@ -1389,8 +1540,8 @@ function setPortraitSide(side) {
   schedulePersistComposerConfig();
 }
 
-async function switchTab(tab) {
-  activeTab = tab;
+async function switchTab(_tab) {
+  activeTab = 'full';
   await render();
   centerView();
   schedulePersistComposerConfig();
@@ -1418,6 +1569,9 @@ async function clearAll() {
 // ============================================================
 // 画布渲染
 // ============================================================
+/** 仅当渲染超过该毫秒数后才显示遮罩，避免缓存命中时一闪而过 */
+const LAYER_LOADING_OVERLAY_DELAY_MS = 420;
+
 function scheduleLayerLoadingOverlay() {
   if (layerLoadingShowTimer) return;
   layerLoadingShowTimer = setTimeout(() => {
@@ -1429,7 +1583,7 @@ function scheduleLayerLoadingOverlay() {
         el.setAttribute('aria-hidden', 'false');
       }
     }
-  }, 100);
+  }, LAYER_LOADING_OVERLAY_DELAY_MS);
 }
 
 function cancelLayerLoadingOverlayTimer() {
@@ -1452,11 +1606,7 @@ async function render() {
   layerRenderDepth++;
   scheduleLayerLoadingOverlay();
   try {
-    if (activeTab === 'portrait') {
-      await renderPortraitOnly();
-    } else {
-      await renderFull();
-    }
+    await renderFull();
     updateStatus();
   } finally {
     layerRenderDepth--;
@@ -1495,8 +1645,8 @@ function canvasToPngDataUrl(canvas) {
 
 async function createSystemLayerData(item, options = {}) {
   if (!item) return null;
-  await ensureLoaded(item.path);
-  const img = imgCache[item.path];
+  await ensureHdLoaded(item.path);
+  const img = imgCacheHd[item.path];
   if (!img) return null;
 
   const scale = options.scale || 1;
@@ -1701,14 +1851,14 @@ async function drawLayer(ctx, cat) {
 
 // 在 ctx 的 (px, py) 位置以原始尺寸绘制图片
 async function drawImgFullAt(ctx, imgPath, px, py) {
-  const img = await loadImg(imgPath);
+  const img = await loadImgHd(imgPath);
   if (!img) return;
   ctx.drawImage(img, px, py);
 }
 
 // 以 scale 比例缩放绘制图片
 async function drawImgScaled(ctx, imgPath, px, py, scale) {
-  const img = await loadImg(imgPath);
+  const img = await loadImgHd(imgPath);
   if (!img) return;
   const sw = Math.round(img.naturalWidth * scale);
   const sh = Math.round(img.naturalHeight * scale);
@@ -1717,7 +1867,7 @@ async function drawImgScaled(ctx, imgPath, px, py, scale) {
 
 // 在 ctx 中心位置以原始尺寸绘制（用于画布自身内居中）
 async function drawImgFull(ctx, imgPath) {
-  const img = await loadImg(imgPath);
+  const img = await loadImgHd(imgPath);
   if (!img) return;
   const iw = img.naturalWidth, ih = img.naturalHeight;
   const dx = iw <= ctx.canvas.width  ? (ctx.canvas.width  - iw) / 2 : 0;
@@ -1728,27 +1878,43 @@ async function drawImgFull(ctx, imgPath) {
 // 与 server.js 默认一致：Cloudflare Worker；若接口返回其它 _meta.imgBase 则以接口为准
 const CDN = 'https://portable-icon.2513985996.workers.dev';
 let ICON_IMG_BASE = CDN;
+/** 同源 /img-preview/... ；仅用于侧栏缩略图 src，不参与画布几何计算 */
+let ICON_PREVIEW_BASE = null;
 
-function iconImgSrc(relPath) {
+function iconImgSrcHd(relPath) {
   const p = String(relPath || '').replace(/^\//, '');
   const b = String(ICON_IMG_BASE || CDN).replace(/\/$/, '');
   return b + '/' + p;
 }
 
-function loadImg(imgPath) {
+function iconImgSrcPreview(relPath) {
+  if (!ICON_PREVIEW_BASE) return iconImgSrcHd(relPath);
+  const p = String(relPath || '').replace(/^\//, '');
+  const b = String(ICON_PREVIEW_BASE).replace(/\/$/, '');
+  return b + '/' + p;
+}
+
+function loadImgHd(imgPath) {
   return new Promise(resolve => {
-    if (imgCache[imgPath]) { resolve(imgCache[imgPath]); return; }
+    if (imgCacheHd[imgPath]) { resolve(imgCacheHd[imgPath]); return; }
     const img = new Image();
-    // 关键：跨域图片需设置 CORS，否则导出时 canvas 会被 taint，toDataURL/toBlob 会直接抛异常
     img.crossOrigin = 'anonymous';
-    img.onload = () => { imgCache[imgPath] = img; resolve(img); };
+    img.onload = () => {
+      imgCacheHd[imgPath] = img;
+      const finish = () => resolve(img);
+      if (typeof img.decode === 'function') {
+        img.decode().then(finish).catch(finish);
+      } else {
+        finish();
+      }
+    };
     img.onerror = () => resolve(null);
-    img.src = iconImgSrc(imgPath);
+    img.src = iconImgSrcHd(imgPath);
   });
 }
 
 // ============================================================
-// 画布变换（缩放 + 拖拽）
+// 画布变换（固定居中，可缩放，不可拖拽）
 // ============================================================
 function applyTransform() {
   const container = document.getElementById('canvasContainer');
@@ -1757,88 +1923,111 @@ function applyTransform() {
   const vw = vp.clientWidth, vh = vp.clientHeight;
   const cw = canvas.width, ch = canvas.height;
 
-  // 容器保持画布物理像素
-  container.style.width  = cw + 'px';
-  container.style.height = ch + 'px';
+  const fitScale = (cw > 0 && ch > 0) ? Math.min(vw / cw, vh / ch) : 1;
+  const scale = fitScale * zoomLevel;
+  const dx = (vw - cw * scale) / 2;
+  const dy = (vh - ch * scale) / 2;
 
-  // scale(zoom) 变换：以画布左上角为原点
-  const dx = vw > cw ? (vw - cw) / 2 : currentOffsetX;
-  const dy = vh > ch ? (vh - ch) / 2 : currentOffsetY;
-  container.style.transform = `scale(${zoomLevel})`;
+  container.style.width = cw + 'px';
+  container.style.height = ch + 'px';
+  container.style.transform = `scale(${scale})`;
   container.style.transformOrigin = '0 0';
   container.style.position = 'absolute';
   container.style.left = Math.round(dx) + 'px';
   container.style.top  = Math.round(dy) + 'px';
 }
 
-function setZoom(val) {
-  zoomLevel = parseFloat(val);
+function centerView() {
   applyTransform();
-  document.getElementById('zoomSelect').value = val;
-  schedulePersistComposerConfig();
+}
+
+function clampZoom(z) {
+  if (!Number.isFinite(z)) return 1;
+  return Math.max(0.5, Math.min(3, z));
+}
+
+function syncZoomSelect() {
+  const zs = document.getElementById('zoomSelect');
+  if (!zs) return;
+  zs.value = String(zoomLevel);
+  if (![...zs.options].some(o => o.value === zs.value)) {
+    let nearest = zs.options[0]?.value || '1';
+    let best = Infinity;
+    for (const opt of zs.options) {
+      const v = parseFloat(opt.value);
+      const d = Math.abs(v - zoomLevel);
+      if (d < best) {
+        best = d;
+        nearest = opt.value;
+      }
+    }
+    zs.value = nearest;
+  }
+}
+
+function setZoom(val, persist = true) {
+  const parsed = parseFloat(val);
+  zoomLevel = clampZoom(parsed);
+  syncZoomSelect();
+  applyTransform();
+  if (persist) schedulePersistComposerConfig();
 }
 
 function zoom(dir) {
-  const steps = [0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 1.0];
+  const steps = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
   const cur = zoomLevel;
   let idx = steps.findIndex(s => s >= cur);
-  if (idx < 0) idx = 3;
-  idx = Math.max(0, Math.min(steps.length - 1, idx + dir));
+  if (idx < 0) idx = steps.length - 1;
+  idx = Math.max(0, Math.min(steps.length - 1, idx + (dir > 0 ? 1 : -1)));
   setZoom(steps[idx]);
 }
 
-function centerView() {
-  currentOffsetX = 0; currentOffsetY = 0;
-  applyTransform();
-}
-
 function resetView() {
-  zoomLevel = 0.2;
-  document.getElementById('zoomSelect').value = '0.2';
-  centerView();
-  schedulePersistComposerConfig();
+  setZoom(1);
 }
 
-// 拖拽
-const viewport = document.getElementById('canvasViewport');
-viewport.addEventListener('mousedown', e => {
-  if (e.button !== 0) return;
-  isDragging = true;
-  dragStartX = e.clientX - currentOffsetX;
-  dragStartY = e.clientY - currentOffsetY;
-  viewport.classList.add('dragging');
-  e.preventDefault();
-});
-document.addEventListener('mousemove', e => {
-  if (!isDragging) return;
-  currentOffsetX = e.clientX - dragStartX;
-  currentOffsetY = e.clientY - dragStartY;
-  applyTransform();
-});
-document.addEventListener('mouseup', () => {
-  if (isDragging) {
-    isDragging = false;
-    viewport.classList.remove('dragging');
-    schedulePersistComposerConfig();
+function toggleMobileActionMenu() {
+  const list = document.getElementById('mobileActionList');
+  if (!list) return;
+  const open = list.classList.toggle('open');
+  list.setAttribute('aria-hidden', open ? 'false' : 'true');
+}
+
+function closeMobileActionMenu() {
+  const list = document.getElementById('mobileActionList');
+  if (!list || !list.classList.contains('open')) return;
+  list.classList.remove('open');
+  list.setAttribute('aria-hidden', 'true');
+}
+
+document.addEventListener('click', event => {
+  const list = document.getElementById('mobileActionList');
+  const button = document.getElementById('mobileActionBtn');
+  if (!list || !button) return;
+  if (list.classList.contains('open') && !event.target.closest('#mobileActionBtn') && !event.target.closest('#mobileActionList')) {
+    closeMobileActionMenu();
   }
 });
 
-viewport.addEventListener('wheel', e => {
-  e.preventDefault();
-  zoom(e.deltaY > 0 ? -1 : 1);
-}, { passive: false });
 window.addEventListener('resize', () => applyTransform());
 
 // ============================================================
 // 导出
 // ============================================================
-function exportCanvas() {
+async function exportCanvas() {
+  const canvas = document.getElementById('mainCanvas');
+  layerRenderDepth++;
+  scheduleLayerLoadingOverlay();
   try {
-    const canvas = document.getElementById('mainCanvas');
+    await prefetchImgPaths(collectPathsForFullRender());
+    await renderFull();
     triggerDownload(canvas, '_' + canvas.width + 'x' + canvas.height + '.png');
   } catch (e) {
     console.error('[exportCanvas] failed:', e);
     alert('导出 PNG 失败：' + (e?.message || e));
+  } finally {
+    layerRenderDepth--;
+    if (layerRenderDepth === 0) hideLayerLoadingOverlay();
   }
 }
 
@@ -1853,6 +2042,7 @@ function triggerDownload(canvas, suffix) {
 // PSD 导出用的完整合成
 // ============================================================
 async function buildFullComposite(ctx) {
+  await prefetchImgPaths(collectPathsForFullRender());
   // 1. 铭牌基础
   await drawLayer(ctx, '铭牌背衬');
   await drawLayer(ctx, '铭牌底色');
@@ -1872,16 +2062,25 @@ async function buildFullComposite(ctx) {
   await drawLayer(ctx, '铭牌顶部装饰');
   await drawLayer(ctx, '铭牌底部装饰');
   await drawLayer(ctx, '铭牌装饰物');
+  await drawLayer(ctx, '铭牌装饰物B');
 }
 
-function ensureLoaded(imgPath) {
-  if (imgCache[imgPath]) return Promise.resolve();
+function ensureHdLoaded(imgPath) {
+  if (imgCacheHd[imgPath]) return Promise.resolve();
   return new Promise(resolve => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => { imgCache[imgPath] = img; resolve(); };
+    img.onload = () => {
+      imgCacheHd[imgPath] = img;
+      const finish = () => resolve();
+      if (typeof img.decode === 'function') {
+        img.decode().then(finish).catch(finish);
+      } else {
+        finish();
+      }
+    };
     img.onerror = () => resolve();
-    img.src = iconImgSrc(imgPath);
+    img.src = iconImgSrcHd(imgPath);
   });
 }
 
@@ -1889,7 +2088,7 @@ function ensureLoaded(imgPath) {
 async function prefetchImgPaths(paths) {
   const uniq = [...new Set(paths.filter(Boolean))];
   if (uniq.length === 0) return;
-  await Promise.all(uniq.map(p => loadImg(p)));
+  await Promise.all(uniq.map(p => loadImgHd(p)));
 }
 
 function collectPathsForFullRender() {
@@ -1931,7 +2130,7 @@ async function exportPSD() {
   statusBar.textContent = '正在生成 PSD 文件…';
 
   try {
-    const resp = await fetch('/api/export-psd', {
+    const resp = await fetch(appPath('/api/export-psd'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ layers, canvasWidth: w, canvasHeight: h })
@@ -1983,7 +2182,7 @@ async function exportPSDJSX() {
 
     console.log('[exportPSDJSX] Total layers:', layers.length, layers.map(l => l.name + '@' + l.width + 'x' + l.height).join(', '));
 
-    const resp = await fetch('/api/export-psd-jsx', {
+    const resp = await fetch(appPath('/api/export-psd-jsx'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ layers, canvasWidth: w, canvasHeight: h })
@@ -2016,7 +2215,7 @@ async function exportLayeredZip() {
       return;
     }
 
-    const resp = await fetch('/api/export-layered-zip', {
+    const resp = await fetch(appPath('/api/export-layered-zip'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

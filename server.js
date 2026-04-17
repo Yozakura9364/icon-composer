@@ -2,9 +2,11 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
+const { PNG } = require('pngjs');
 const { createLayeredPSD } = require('./psd-writer');
 const { generateJSXScript } = require('./jsx-writer');
 const { getCsvWhitelistSync } = require('./csv-whitelist');
+const yazl = require('yazl');
 
 // 支持命令行参数: --materials <path> --export <path>
 // 部署时可设环境变量 ICON_COMPOSER_MATERIALS / ICON_COMPOSER_EXPORT（命令行优先）
@@ -21,6 +23,31 @@ for (let i = 0; i < args.length; i++) {
 const PORT = parseInt(process.env.ICON_COMPOSER_PORT || '3456', 10);
 /** 若设置，访问 /api/metrics 须在 query 带 ?secret= 值，避免流量数据被随意抓取 */
 const METRICS_SECRET = process.env.METRICS_SECRET || '';
+
+/** 未设环境变量时，可读项目根 app-base.txt 首行（如 /portable），方便宝塔不写 env */
+function mergeIconComposerBaseFromFile() {
+  if (String(process.env.ICON_COMPOSER_BASE || '').trim()) return;
+  try {
+    const p = path.join(__dirname, 'app-base.txt');
+    if (!fs.existsSync(p)) return;
+    const line = fs.readFileSync(p, 'utf8').split(/\r?\n/)[0].trim();
+    if (line) process.env.ICON_COMPOSER_BASE = line;
+  } catch (e) {
+    /* ignore */
+  }
+}
+mergeIconComposerBaseFromFile();
+
+/** 子路径部署，如 /portable（对应 https://www.example.com/portable/）。不设则根路径。 */
+function normalizeIconComposerBase() {
+  let s = String(process.env.ICON_COMPOSER_BASE || '').trim();
+  if (!s) return '';
+  if (!s.startsWith('/')) s = '/' + s;
+  s = s.replace(/\/+$/, '');
+  if (s.includes('..') || !/^\/[\w./-]+$/.test(s)) return '';
+  return s;
+}
+const ICON_COMPOSER_BASE = normalizeIconComposerBase();
 
 /** 边缘缓存：PNG 路径即内容版本，可长期缓存以降低回源（配合 CDN 控制台规则） */
 const CACHE_IMG = 'public, max-age=31536000, immutable';
@@ -190,8 +217,90 @@ const DEFAULT_IMG_BASE = 'https://portable-icon.2513985996.workers.dev';
 
 function resolveImgBase() {
   const v = process.env.ICON_COMPOSER_IMG_BASE;
-  if (v && String(v).trim()) return String(v).trim().replace(/\/$/, '');
-  return DEFAULT_IMG_BASE;
+  let out;
+  if (v && String(v).trim()) out = String(v).trim().replace(/\/$/, '');
+  else out = DEFAULT_IMG_BASE;
+  if (ICON_COMPOSER_BASE && out.startsWith('/') && !out.startsWith('//')) {
+    return ICON_COMPOSER_BASE + out;
+  }
+  return out;
+}
+
+function clampPreviewMaxEdge(n) {
+  const x = parseInt(String(n), 10);
+  if (!Number.isFinite(x) || x < 1) return 640;
+  return Math.min(2048, Math.max(128, Math.round(x)));
+}
+
+/** 本地存在六位数字素材目录时，可提供 /img-preview 供浏览器画布用缩略体积加载 */
+function hasLocalIconFolders() {
+  try {
+    if (!fs.existsSync(ICON_ROOT)) return false;
+    const st = fs.statSync(ICON_ROOT);
+    if (!st.isDirectory()) return false;
+    const folders = fs.readdirSync(ICON_ROOT).filter(f => /^\d{6}$/.test(f));
+    return folders.length > 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+function resolvePreviewImgMeta() {
+  const maxEdge = clampPreviewMaxEdge(process.env.ICON_COMPOSER_PREVIEW_MAX_EDGE || 640);
+  if (!hasLocalIconFolders()) return { maxEdge, base: null };
+  return { maxEdge, base: `/img-preview/${maxEdge}` };
+}
+
+function pathUnderIconRoot(relUrlPath) {
+  const rel = String(relUrlPath || '').replace(/^[/\\]+/, '').replace(/\//g, path.sep);
+  if (!rel || rel.includes('..')) return null;
+  const full = path.resolve(path.join(ICON_ROOT, rel));
+  const root = path.resolve(ICON_ROOT);
+  if (full !== root && !full.startsWith(root + path.sep)) return null;
+  return full;
+}
+
+function nearestDownscaleRgba(src, sw, sh, dw, dh) {
+  const dst = new Uint8Array(dw * dh * 4);
+  for (let y = 0; y < dh; y++) {
+    const sy = Math.min(sh - 1, Math.floor((y + 0.5) * sh / dh));
+    for (let x = 0; x < dw; x++) {
+      const sx = Math.min(sw - 1, Math.floor((x + 0.5) * sw / dw));
+      const si = (sy * sw + sx) * 4;
+      const di = (y * dw + x) * 4;
+      dst[di] = src[si];
+      dst[di + 1] = src[si + 1];
+      dst[di + 2] = src[si + 2];
+      dst[di + 3] = src[si + 3];
+    }
+  }
+  return Buffer.from(dst);
+}
+
+function buildPreviewPngBuffer(filePath, maxEdge) {
+  const buf = fs.readFileSync(filePath);
+  const png = PNG.sync.read(buf);
+  const sw = png.width;
+  const sh = png.height;
+  const data = png.data;
+  if (!sw || !sh || !data || data.length < sw * sh * 4) {
+    throw new Error('invalid png dimensions');
+  }
+  const maxCur = Math.max(sw, sh);
+  if (maxCur <= maxEdge) return buf;
+  let dw;
+  let dh;
+  if (sw >= sh) {
+    dw = maxEdge;
+    dh = Math.max(1, Math.round((sh * maxEdge) / sw));
+  } else {
+    dh = maxEdge;
+    dw = Math.max(1, Math.round((sw * maxEdge) / sh));
+  }
+  const newData = nearestDownscaleRgba(data, sw, sh, dw, dh);
+  const outPng = new PNG({ width: dw, height: dh });
+  outPng.data = newData;
+  return PNG.sync.write(outPng);
 }
 
 const MIME = {
@@ -209,7 +318,14 @@ const MIME = {
 
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
-  const pathname = decodeURIComponent(parsedUrl.pathname);
+  let pathname = decodeURIComponent(parsedUrl.pathname);
+  if (ICON_COMPOSER_BASE) {
+    if (pathname === ICON_COMPOSER_BASE || pathname === ICON_COMPOSER_BASE + '/') {
+      pathname = '/';
+    } else if (pathname.startsWith(ICON_COMPOSER_BASE + '/')) {
+      pathname = pathname.slice(ICON_COMPOSER_BASE.length);
+    }
+  }
   metrics.requestsTotal += 1;
   res.setHeader('Access-Control-Allow-Origin', '*');
 
@@ -247,10 +363,15 @@ const server = http.createServer((req, res) => {
     if (csvWhitelist && csvWhitelist.size > 0) {
       data = filterFileDataByWhitelist(data, csvWhitelist);
     }
+    const prevM = resolvePreviewImgMeta();
     const payload = {
       portrait: data.portrait,
       nameplate: data.nameplate,
-      _meta: { imgBase: resolveImgBase() },
+      _meta: {
+        imgBase: resolveImgBase(),
+        previewImgBase: prevM.base ? ICON_COMPOSER_BASE + prevM.base : null,
+        previewMaxEdge: prevM.base ? prevM.maxEdge : null,
+      },
     };
     res.writeHead(200, {
       'Content-Type': 'application/json',
@@ -388,6 +509,71 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 分层 ZIP：PNG + manifest.json（画布尺寸与各层锚点）
+  if (pathname === '/api/export-layered-zip' && req.method === 'POST') {
+    metrics.apiExport += 1;
+    let body = [];
+    let size = 0;
+    req.on('data', chunk => {
+      body.push(chunk);
+      size += chunk.length;
+    });
+    req.on('end', () => {
+      try {
+        const rawBody = Buffer.concat(body).toString('utf8');
+        const { layers, canvasWidth, canvasHeight } = JSON.parse(rawBody);
+        if (!Array.isArray(layers) || layers.length === 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'No layers provided' }));
+          return;
+        }
+
+        const manifest = {
+          canvasWidth,
+          canvasHeight,
+          layers: layers.map((ly, i) => ({
+            file: `L${String(i).padStart(3, '0')}.png`,
+            name: ly.name || 'Layer',
+            x: ly.x,
+            y: ly.y,
+            width: ly.width,
+            height: ly.height,
+          })),
+        };
+
+        const zipfile = new yazl.ZipFile();
+        zipfile.addBuffer(
+          Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'),
+          'manifest.json'
+        );
+        for (let i = 0; i < layers.length; i++) {
+          const ly = layers[i];
+          const b64 = String(ly.rgbaData).replace(/^data:image\/\w+;base64,/, '');
+          const pngBuf = Buffer.from(b64, 'base64');
+          const entryName = `L${String(i).padStart(3, '0')}.png`;
+          zipfile.addBuffer(pngBuf, entryName);
+        }
+
+        res.writeHead(200, {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="layered_export_${Date.now()}.zip"`,
+          'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+        });
+        zipfile.outputStream.on('error', err => {
+          console.error('[export-layered-zip] stream', err);
+        });
+        zipfile.outputStream.pipe(res);
+        zipfile.end();
+      } catch (e) {
+        console.error('[export-layered-zip]', e);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
   if (pathname.startsWith('/img/')) {
     const relPath = pathname.slice(5).replace(/\//g, path.sep);
     const filePath = path.join(ICON_ROOT, relPath);
@@ -404,6 +590,47 @@ const server = http.createServer((req, res) => {
       metrics.img404 += 1;
       res.writeHead(404, { 'Cache-Control': 'no-store' });
       res.end('Not Found');
+    }
+    return;
+  }
+
+  if (pathname.startsWith('/img-preview/')) {
+    const rest = pathname.slice('/img-preview/'.length);
+    const slash = rest.indexOf('/');
+    if (slash <= 0) {
+      metrics.img404 += 1;
+      res.writeHead(404, { 'Cache-Control': 'no-store' });
+      res.end('Not Found');
+      return;
+    }
+    const maxEdge = clampPreviewMaxEdge(rest.slice(0, slash));
+    const relUrl = rest.slice(slash + 1);
+    if (!relUrl || !/\.png$/i.test(relUrl)) {
+      metrics.img404 += 1;
+      res.writeHead(404, { 'Cache-Control': 'no-store' });
+      res.end('Not Found');
+      return;
+    }
+    const filePath = pathUnderIconRoot(relUrl);
+    if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+      metrics.img404 += 1;
+      res.writeHead(404, { 'Cache-Control': 'no-store' });
+      res.end('Not Found');
+      return;
+    }
+    try {
+      const outBuf = buildPreviewPngBuffer(filePath, maxEdge);
+      metrics.imgHits += 1;
+      res.writeHead(200, {
+        'Content-Type': 'image/png',
+        'Cache-Control': CACHE_IMG,
+        'X-Content-Type-Options': 'nosniff',
+      });
+      res.end(outBuf);
+    } catch (e) {
+      console.error('[img-preview]', filePath, e.message);
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Preview error');
     }
     return;
   }
@@ -426,8 +653,16 @@ const server = http.createServer((req, res) => {
     } else {
       headers['Cache-Control'] = 'public, max-age=600';
     }
-    res.writeHead(200, headers);
-    fs.createReadStream(filePath).pipe(res);
+    if (ext === '.html' && path.basename(filePath) === 'index.html') {
+      const body = fs
+        .readFileSync(filePath, 'utf8')
+        .replace(/@@ICON_APP_BASE@@/g, ICON_COMPOSER_BASE.replace(/"/g, ''));
+      res.writeHead(200, headers);
+      res.end(body, 'utf8');
+    } else {
+      res.writeHead(200, headers);
+      fs.createReadStream(filePath).pipe(res);
+    }
   } else {
     res.writeHead(404, { 'Cache-Control': 'no-store' });
     res.end('Not Found');
@@ -447,6 +682,9 @@ server.listen(PORT, () => {
     );
   }
   console.log(`铭牌生成器已启动: http://localhost:${PORT}`);
+  if (ICON_COMPOSER_BASE) {
+    console.log('应用子路径: %s', ICON_COMPOSER_BASE);
+  }
   console.log(`素材目录: ${ICON_ROOT}`);
   const pinned = resolveFilesJsonPath();
   if (fs.existsSync(pinned)) {
@@ -459,6 +697,18 @@ server.listen(PORT, () => {
     '图片基址 _meta.imgBase: %s（覆盖默认请设环境变量 ICON_COMPOSER_IMG_BASE）',
     resolveImgBase()
   );
+  const pm = resolvePreviewImgMeta();
+  if (pm.base) {
+    console.log(
+      '已启用侧栏缩略图: %s（长边 %d px，可调 ICON_COMPOSER_PREVIEW_MAX_EDGE；画布与导出仍用 _meta.imgBase 原图）',
+      pm.base,
+      pm.maxEdge
+    );
+  } else {
+    console.log(
+      '未启用 /img-preview（无本地六位数字素材目录时，缩略图与画布均走 _meta.imgBase）'
+    );
+  }
   try {
     if (!fs.existsSync(ICON_ROOT)) {
       const hint = fs.existsSync(pinned)
