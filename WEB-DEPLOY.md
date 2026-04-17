@@ -15,7 +15,9 @@
 - `psd-writer.js`
 - `jsx-writer.js`
 
-不包含：`electron/`、`node_modules/`、`vendor/`（CSV 白名单可走网络拉取）、本机路径素材、**`equip-card-maker/`**（装备名称卡为独立项目；若与铭牌同目录，已通过 `.gitignore` 排除，勿 `git add`）。
+不包含：`electron/`、`node_modules/`、`vendor/`（CSV 白名单可走网络拉取）、本机路径素材。
+
+装备名称卡 **equip-card-maker** 为独立项目，开发目录：`H:\equip-card-maker`（单独 Git 仓库，勿并入本仓库）。
 
 ## 首次推送示例
 
@@ -25,7 +27,6 @@
 git init
 git remote add origin https://github.com/Yozakura9364/icon-composer-web.git
 git add index.html server.js csv-whitelist.js csv-valid-icon-ids.json presets.json id-names.json package.json package-lock.json psd-writer.js jsx-writer.js README.md WEB-DEPLOY.md .gitignore
-# 勿 add equip-card-maker/（已 .gitignore）
 git commit -m "Initial web deployment"
 git branch -M main
 git push -u origin main

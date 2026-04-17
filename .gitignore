@@ -16,6 +16,3 @@ export_*.psd
 
 # 保留 package-lock.json 便于部署环境锁版本
 
-# 独立项目，不包含在 icon-composer-web 仓库中
-equip-card-maker/
-
