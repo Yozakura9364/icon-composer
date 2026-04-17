@@ -1178,30 +1178,22 @@ async function applyPreset(type, name) {
       const el = document.getElementById('selected-' + c);
       if (el) { el.src = ''; el.style.display = 'none'; }
     });
-    // 如果同名肖像预设存在，先加载肖像图层
-    if (bannerPreset) {
-      for (const layer of bannerPreset.layers) {
-        const cat = layer.cat;
-        const id = layer.id;
-        if (!id) continue;
-        const fd = layerListFor(cat);
-        const item = fd.find(f => f.id === String(id));
-        if (!item) { console.log('[preset] 未找到', cat, id); continue; }
-        await ensureLoaded(item.path);
-        selected[cat] = { id: item.id, file: item.file, path: item.path };
-        const el = document.getElementById('selected-' + cat);
-        if (el) { el.src = item.path; el.style.display = 'block'; }
-      }
-    }
-    // 加载铭牌预设中的图层（含肖像三分类时须从 portrait 取素材表，不能只用 nameplate）
-    for (const layer of preset.layers) {
+    const assignList = [];
+    const pushLayer = (layer) => {
       const cat = layer.cat;
       const id = layer.id;
-      if (!id) continue;
+      if (!id) return;
       const fd = layerListFor(cat);
       const item = fd.find(f => f.id === String(id));
-      if (!item) { console.log('[preset] 未找到', cat, id); continue; }
-      await ensureLoaded(item.path);
+      if (!item) { console.log('[preset] 未找到', cat, id); return; }
+      assignList.push({ cat, item });
+    };
+    if (bannerPreset) {
+      for (const layer of bannerPreset.layers) pushLayer(layer);
+    }
+    for (const layer of preset.layers) pushLayer(layer);
+    await prefetchImgPaths(assignList.map(a => a.item.path));
+    for (const { cat, item } of assignList) {
       selected[cat] = { id: item.id, file: item.file, path: item.path };
       const el = document.getElementById('selected-' + cat);
       if (el) { el.src = item.path; el.style.display = 'block'; }
@@ -1213,6 +1205,7 @@ async function applyPreset(type, name) {
       const el = document.getElementById('selected-' + c);
       if (el) { el.src = ''; el.style.display = 'none'; }
     });
+    const assignList = [];
     for (const layer of preset.layers) {
       const cat = layer.cat;
       const id = layer.id;
@@ -1220,7 +1213,10 @@ async function applyPreset(type, name) {
       const fd = layerListFor(cat);
       const item = fd.find(f => f.id === String(id));
       if (!item) { console.log('[preset] 未找到', cat, id); continue; }
-      await ensureLoaded(item.path);
+      assignList.push({ cat, item });
+    }
+    await prefetchImgPaths(assignList.map(a => a.item.path));
+    for (const { cat, item } of assignList) {
       selected[cat] = { id: item.id, file: item.file, path: item.path };
       const el = document.getElementById('selected-' + cat);
       if (el) { el.src = item.path; el.style.display = 'block'; }
@@ -1619,6 +1615,8 @@ async function renderPortraitOnly() {
   ctx.clearRect(0, 0, CANVAS_PORTRAIT.w, CANVAS_PORTRAIT.h);
   ctx.imageSmoothingEnabled = false;
 
+  await prefetchImgPaths(collectPathsForPortraitTab());
+
   const bg = selected['肖像背景'];
   if (bg) await drawImgFull(ctx, bg.path);
   await drawCustomPortraitImage(ctx);
@@ -1636,6 +1634,8 @@ async function renderFull() {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, CANVAS_FULL.w, CANVAS_FULL.h);
   ctx.imageSmoothingEnabled = false;
+
+  await prefetchImgPaths(collectPathsForFullRender());
 
   // --- 1. 铭牌背景层 ---
   await drawLayer(ctx, '铭牌背衬');
@@ -1883,6 +1883,37 @@ function ensureLoaded(imgPath) {
     img.onerror = () => resolve();
     img.src = iconImgSrc(imgPath);
   });
+}
+
+/** 并行预加载，避免多图层时串行 await 导致点击后长时间等待 */
+async function prefetchImgPaths(paths) {
+  const uniq = [...new Set(paths.filter(Boolean))];
+  if (uniq.length === 0) return;
+  await Promise.all(uniq.map(p => loadImg(p)));
+}
+
+function collectPathsForFullRender() {
+  const keys = [
+    '铭牌背衬', '铭牌底色', '铭牌花纹',
+    ...PORTRAIT_CATS,
+    '铭牌外框', '肖像外框',
+    '铭牌顶部装饰', '铭牌底部装饰', '铭牌装饰物', '铭牌装饰物B',
+  ];
+  const out = [];
+  for (const k of keys) {
+    const s = selected[k];
+    if (s && s.path) out.push(s.path);
+  }
+  return out;
+}
+
+function collectPathsForPortraitTab() {
+  const out = [];
+  for (const k of PORTRAIT_CATS) {
+    const s = selected[k];
+    if (s && s.path) out.push(s.path);
+  }
+  return out;
 }
 
 // ========== 导出 PSD ==========
