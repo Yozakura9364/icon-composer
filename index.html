@@ -1621,6 +1621,15 @@ function updateStatus() {
   document.getElementById('statusBar').textContent = `已选 ${count} 层`;
 }
 
+/** 与 drawImgFull 一致：素材在 512x840 肖像槽内的左上角偏移 */
+function centeredAssetOffsetInPortraitSlot(naturalW, naturalH) {
+  const iw = Number(naturalW) || 0;
+  const ih = Number(naturalH) || 0;
+  const dx = iw <= CANVAS_PORTRAIT.w ? (CANVAS_PORTRAIT.w - iw) / 2 : 0;
+  const dy = ih <= CANVAS_PORTRAIT.h ? (CANVAS_PORTRAIT.h - ih) / 2 : 0;
+  return { x: dx, y: dy };
+}
+
 function getCustomPortraitDrawRect() {
   if (!customPortraitImage || !customPortraitImage.img) return null;
   const img = customPortraitImage.img;
@@ -1693,38 +1702,40 @@ async function createCustomPortraitLayerData(portraitOrigin) {
   };
 }
 
+/** 与 renderFull / drawLayer 使用同一套常量，避免手写坐标漂移 */
+function exportPlacementForNameplate(cat) {
+  if (cat === '肖像外框') {
+    const p = PORTRAIT_FRAME_ON_NAMEPLATE[portraitSide];
+    return { x: p.x, y: p.y, scale: 1 };
+  }
+  const c = LAYER_COORDS[cat];
+  if (!c || c.canvas !== 'nameplate') return null;
+  return {
+    x: c.x,
+    y: c.y,
+    scale: c.scale !== undefined ? c.scale : 1,
+  };
+}
+
 async function collectLayeredExportData() {
   const layers = [];
-  // 分层 ZIP：肖像三图层与自定义图锚点与完整预览嵌入一致（右 1444,300 / 左 604,300）
+  // 与 renderFull 顺序一致；坐标与 drawLayer / drawPortraitOnCtx / drawPortraitFrameOnNameplate 对齐
   const zipPortrait = PORTRAIT_EMBED[portraitSide];
 
-  const prefixDefs = [
-    { cat: '铭牌背衬', x: 0, y: 0 },
-    { cat: '铭牌底色', x: 540, y: 300 },
-    { cat: '铭牌花纹', x: 540, y: 300 },
-  ];
-  const suffixDefs = [
-    { cat: '铭牌外框', x: 320, y: 172 },
-    { cat: '肖像外框', x: portraitSide === 'right' ? 1260 : 420, y: 0 },
-    { cat: '铭牌顶部装饰', x: 320, y: 172 },
-    { cat: '铭牌底部装饰', x: 320, y: 956 },
-    { cat: '铭牌装饰物', x: 1700, y: 763 },
-    { cat: '铭牌装饰物B', x: 1764, y: 824 },
-  ];
-
-  for (const def of prefixDefs) {
-    const item = selected[def.cat];
-    const coord = LAYER_COORDS[def.cat];
+  const nameplatePrefix = ['铭牌背衬', '铭牌底色', '铭牌花纹'];
+  for (const cat of nameplatePrefix) {
+    const place = exportPlacementForNameplate(cat);
+    if (!place) continue;
+    const item = selected[cat];
     const layer = await createSystemLayerData(item, {
-      name: def.cat,
-      x: def.x,
-      y: def.y,
-      scale: coord && coord.scale !== undefined ? coord.scale : 1,
+      name: cat,
+      x: place.x,
+      y: place.y,
+      scale: place.scale,
     });
     if (layer) layers.push(layer);
   }
 
-  // 铭牌花纹 → 铭牌外框 之间：肖像三图层分开导出，锚点 zipPortrait；自定义图在背景与装饰框之间
   const portraitZipCats = ['肖像背景', '肖像装饰框', '肖像装饰物'];
   for (const cat of portraitZipCats) {
     if (cat === '肖像装饰框') {
@@ -1732,23 +1743,37 @@ async function collectLayeredExportData() {
       if (customLayer) layers.push(customLayer);
     }
     const item = selected[cat];
+    if (!item) continue;
+    await ensureHdLoaded(item.path);
+    const pimg = imgCacheHd[item.path];
+    if (!pimg) continue;
+    const off = centeredAssetOffsetInPortraitSlot(pimg.naturalWidth, pimg.naturalHeight);
     const layer = await createSystemLayerData(item, {
       name: cat,
-      x: zipPortrait.x,
-      y: zipPortrait.y,
+      x: zipPortrait.x + off.x,
+      y: zipPortrait.y + off.y,
       scale: 1,
     });
     if (layer) layers.push(layer);
   }
 
-  for (const def of suffixDefs) {
-    const item = selected[def.cat];
-    const coord = LAYER_COORDS[def.cat];
+  const nameplateSuffix = [
+    '铭牌外框',
+    '肖像外框',
+    '铭牌顶部装饰',
+    '铭牌底部装饰',
+    '铭牌装饰物',
+    '铭牌装饰物B',
+  ];
+  for (const cat of nameplateSuffix) {
+    const place = exportPlacementForNameplate(cat);
+    if (!place) continue;
+    const item = selected[cat];
     const layer = await createSystemLayerData(item, {
-      name: def.cat,
-      x: def.x,
-      y: def.y,
-      scale: coord && coord.scale !== undefined ? coord.scale : 1,
+      name: cat,
+      x: place.x,
+      y: place.y,
+      scale: place.scale,
     });
     if (layer) layers.push(layer);
   }

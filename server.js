@@ -303,6 +303,52 @@ function buildPreviewPngBuffer(filePath, maxEdge) {
   return PNG.sync.write(outPng);
 }
 
+function parseCanvasSize(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.round(n));
+}
+
+function parseLayerCoord(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n);
+}
+
+/**
+ * 把单图层 PNG 放到透明全画布上，输出固定尺寸（默认 2560x1440）PNG。
+ * 这样每张导出图本身就包含坐标摆放结果。
+ */
+function placeLayerOnFullCanvas(layer, canvasWidth, canvasHeight) {
+  const b64 = String(layer && layer.rgbaData ? layer.rgbaData : '').replace(
+    /^data:image\/\w+;base64,/,
+    ''
+  );
+  if (!b64) throw new Error('layer rgbaData missing');
+  const src = PNG.sync.read(Buffer.from(b64, 'base64'));
+  const out = new PNG({ width: canvasWidth, height: canvasHeight });
+  out.data.fill(0);
+
+  const ox = parseLayerCoord(layer.x);
+  const oy = parseLayerCoord(layer.y);
+  for (let sy = 0; sy < src.height; sy++) {
+    const dy = oy + sy;
+    if (dy < 0 || dy >= canvasHeight) continue;
+    for (let sx = 0; sx < src.width; sx++) {
+      const dx = ox + sx;
+      if (dx < 0 || dx >= canvasWidth) continue;
+      const si = (sy * src.width + sx) * 4;
+      const di = (dy * canvasWidth + dx) * 4;
+      out.data[di] = src.data[si];
+      out.data[di + 1] = src.data[si + 1];
+      out.data[di + 2] = src.data[si + 2];
+      out.data[di + 3] = src.data[si + 3];
+    }
+  }
+
+  return PNG.sync.write(out);
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js':   'application/javascript',
@@ -509,7 +555,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 分层 ZIP：PNG + manifest.json（画布尺寸与各层锚点）
+  // 分层 ZIP：每层导出为全画布 PNG（默认 2560x1440）+ 坐标清单
   if (pathname === '/api/export-layered-zip' && req.method === 'POST') {
     metrics.apiExport += 1;
     let body = [];
@@ -528,29 +574,40 @@ const server = http.createServer((req, res) => {
           return;
         }
 
+        const fixedCanvasWidth = parseCanvasSize(canvasWidth, 2560);
+        const fixedCanvasHeight = parseCanvasSize(canvasHeight, 1440);
+
         const manifest = {
-          canvasWidth,
-          canvasHeight,
+          coordinateSpace: 'fullCanvasTopLeft',
+          canvasWidth: fixedCanvasWidth,
+          canvasHeight: fixedCanvasHeight,
           layers: layers.map((ly, i) => ({
             file: `L${String(i).padStart(3, '0')}.png`,
             name: ly.name || 'Layer',
-            x: ly.x,
-            y: ly.y,
-            width: ly.width,
-            height: ly.height,
+            x: parseLayerCoord(ly.x),
+            y: parseLayerCoord(ly.y),
+            width: Math.round(Number(ly.width) || 0),
+            height: Math.round(Number(ly.height) || 0),
           })),
         };
 
         const zipfile = new yazl.ZipFile();
         zipfile.addBuffer(
           Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'),
+          'layers.json'
+        );
+        zipfile.addBuffer(
+          Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'),
           'manifest.json'
         );
         for (let i = 0; i < layers.length; i++) {
           const ly = layers[i];
-          const b64 = String(ly.rgbaData).replace(/^data:image\/\w+;base64,/, '');
-          const pngBuf = Buffer.from(b64, 'base64');
           const entryName = `L${String(i).padStart(3, '0')}.png`;
+          const pngBuf = placeLayerOnFullCanvas(
+            ly,
+            fixedCanvasWidth,
+            fixedCanvasHeight
+          );
           zipfile.addBuffer(pngBuf, entryName);
         }
 
