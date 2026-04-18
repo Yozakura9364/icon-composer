@@ -68,18 +68,8 @@ header .subtitle { font-size: 11px; color: var(--text-dim); }
   gap: 6px;
   align-items: center;
 }
-.desktop-export-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.desktop-export-actions .btn {
-  font-size: 12px;
-  padding: 4px 10px;
-  white-space: nowrap;
-}
 #mobileActionBtn {
-  display: none;
+  display: inline-flex;
 }
 .header-actions .header-icon-btn {
   width: 32px;
@@ -168,15 +158,45 @@ canvas { image-rendering: auto; }
   white-space: nowrap;
 }
 .zoom-ctrl { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
-.zoom-ctrl button {
+/* ± only; .btn clear actions need auto width */
+.zoom-ctrl > button:not(.btn) {
   width: 24px; height: 24px; border-radius: 4px; border: 1px solid var(--border);
   background: var(--card); color: var(--text); cursor: pointer; font-size: 14px;
   display: flex; align-items: center; justify-content: center; transition: background 0.12s;
 }
-.zoom-ctrl button:hover { background: var(--card2); }
+.zoom-ctrl > button:not(.btn):hover { background: var(--card2); }
 .zoom-ctrl select {
   background: var(--card); color: var(--text); border: 1px solid var(--border);
-  border-radius: 4px; padding: 3px 8px; font-size: 12px; cursor: pointer;
+  border-radius: 4px; padding: 3px 8px; font-size: 12px; font-weight: 400; line-height: 1.25;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+/* Match .zoom-ctrl select (fill, text, type, padding) */
+.zoom-ctrl .btn.btn-ghost {
+  width: auto;
+  min-width: 0;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.25;
+  white-space: nowrap;
+  box-sizing: border-box;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.zoom-ctrl .btn.btn-ghost:hover {
+  color: var(--text);
+  opacity: 1;
+  transform: none;
+  background: var(--card2);
+}
+.zoom-ctrl .btn.btn-ghost:active {
+  transform: none;
 }
 .btn {
   padding: 6px 16px; border-radius: 5px; font-size: 12px; font-weight: 500;
@@ -427,9 +447,6 @@ canvas { image-rendering: auto; }
 #customPortraitAvatarGlyph { font-size: 26px; color: var(--text-dim); line-height: 1; user-select: none; }
 
 @media (max-width: 768px) {
-  .desktop-export-actions {
-    display: none;
-  }
   .hide-on-mobile {
     display: none !important;
   }
@@ -446,7 +463,9 @@ canvas { image-rendering: auto; }
   }
   .canvas-controls .zoom-ctrl {
     width: 100%;
-    justify-content: space-between;
+    justify-content: center;
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
   .canvas-controls .desktop-action-buttons {
     display: none;
@@ -572,22 +591,6 @@ canvas { image-rendering: auto; }
   <h1>铭牌生成器</h1>
   <div class="subtitle">FF14铭牌DIY</div>
   <div class="header-actions">
-    <div class="desktop-export-actions">
-      <button class="btn btn-primary" onclick="void exportCanvas()">导出 PNG</button>
-      <button class="btn btn-secondary" id="exportLayeredZipBtn" onclick="exportLayeredZip()" style="display:none;background:#0ea5e9;">导出分层 ZIP</button>
-      <button class="btn btn-secondary" onclick="void exportComposerConfigToClipboard();">导出到剪贴板</button>
-    </div>
-    <button type="button" class="btn btn-primary header-icon-btn" id="mobileActionBtn" onclick="toggleMobileActionMenu()" title="下载与操作" aria-label="下载与操作">
-      <img id="downloadIcon" alt="" aria-hidden="true">
-    </button>
-    <div class="mobile-action-list" id="mobileActionList" aria-hidden="true">
-      <button class="btn btn-primary" onclick="void exportCanvas(); closeMobileActionMenu();">导出 PNG</button>
-      <button class="btn btn-secondary" onclick="void exportComposerConfigToClipboard(); closeMobileActionMenu();">导出到剪贴板</button>
-      <!-- <button class="btn btn-secondary" onclick="void exportLayeredZip(); closeMobileActionMenu();" style="background:#0ea5e9;">导出分层 ZIP</button> -->
-      <!-- <button class="btn btn-secondary" onclick="void exportPSDJSX(); closeMobileActionMenu();" style="background:#f59e0b;">导出PSD(JSX)</button> -->
-      <button class="btn btn-ghost" onclick="void clearAll(); closeMobileActionMenu();">清空</button>
-      <button class="btn btn-ghost" id="mobileClearCustomImageBtn" onclick="void clearCustomPortraitImage(); closeMobileActionMenu();" style="display:none;">清空自定义图片</button>
-    </div>
     <button type="button" class="btn btn-ghost header-icon-btn" id="themeToggleBtn" onclick="toggleTheme()" title="切换浅色/深色" aria-label="切换浅色/深色">
       <img id="themeToggleIcon" alt="" aria-hidden="true">
     </button>
@@ -595,9 +598,19 @@ canvas { image-rendering: auto; }
       <img id="settingsIcon" alt="" aria-hidden="true">
     </button>
     <div class="mobile-action-list" id="settingsActionList" aria-hidden="true" onmouseleave="closeSettingsMenu()">
-      <button class="btn btn-secondary hide-on-mobile" onclick="downloadComposerConfigJson(); closeSettingsMenu();">下载 JSON</button>
       <button class="btn btn-ghost" onclick="void importComposerConfigFromClipboard(); closeSettingsMenu();">从剪贴板导入</button>
-      <button class="btn btn-ghost hide-on-mobile" onclick="triggerLoadComposerConfigFile(); closeSettingsMenu();">从JSON导入</button>
+      <button class="btn btn-ghost" onclick="triggerLoadComposerConfigFile(); closeSettingsMenu();">从JSON导入</button>
+    </div>
+    <button type="button" class="btn btn-ghost header-icon-btn" id="mobileActionBtn" onclick="toggleMobileActionMenu()" title="下载与操作" aria-label="下载与操作">
+      <img id="downloadIcon" alt="" aria-hidden="true">
+    </button>
+    <div class="mobile-action-list" id="mobileActionList" aria-hidden="true">
+      <button class="btn btn-ghost" onclick="void exportCanvas(); closeMobileActionMenu();">导出 PNG</button>
+      <button class="btn btn-ghost" onclick="void exportCanvasWhiteJpg(); closeMobileActionMenu();">导出白底 JPG</button>
+      <button class="btn btn-ghost" onclick="void exportCanvasBlackJpg(); closeMobileActionMenu();">导出黑底 JPG</button>
+      <button class="btn btn-ghost" id="exportLayeredZipBtn" onclick="exportLayeredZip(); closeMobileActionMenu();" style="display:none;">导出分层 ZIP</button>
+      <button class="btn btn-ghost" onclick="void exportComposerConfigToClipboard(); closeMobileActionMenu();">导出到剪贴板</button>
+      <button class="btn btn-ghost hide-on-mobile" onclick="downloadComposerConfigJson(); closeMobileActionMenu();">导出JSON</button>
     </div>
     <input type="file" id="composerConfigFileInput" accept="application/json,.json" style="display:none" aria-hidden="true">
   </div>
@@ -624,11 +637,8 @@ canvas { image-rendering: auto; }
           <option value="3">300%</option>
         </select>
         <button type="button" onclick="zoom(1)">+</button>
-        <button type="button" onclick="resetView()" title="重置缩放" style="font-size:11px;width:auto;padding:0 6px;">⊙</button>
-      </div>
-      <div class="desktop-action-buttons">
-        <button class="btn btn-ghost" onclick="clearAll()">清空</button>
-        <button class="btn btn-ghost" id="clearCustomImageBtn" onclick="clearCustomPortraitImage()" style="display:none;">清空自定义图片</button>
+        <button class="btn btn-ghost" type="button" onclick="clearAll()">清空</button>
+        <button class="btn btn-ghost" id="customClearImageBtn" type="button" onclick="clearCustomPortraitImage()" style="display:none;">清空自定义图片</button>
       </div>
     </div>
     <div id="statusBar">已选 0 层</div>
@@ -776,7 +786,7 @@ const PORTRAIT_FRAME_ON_NAMEPLATE = {
 // 状态
 // ============================================================
 let fileData = { portrait: {}, nameplate: {} };
-let selected = {};         // { 分类名: {id,file,path} | null }
+let selected = {};         // { 分类名: 素材项（与 fileData 中对象同形，含 name）| null }
 let portraitSide = 'right';
 let activeTab = 'full'; // 预览固定为完整画布
 let activePanel = 'portrait';
@@ -1044,7 +1054,8 @@ function normalizeComposerConfigObject(obj) {
   return out;
 }
 
-async function applyComposerConfigFromObject(obj) {
+async function applyComposerConfigFromObject(obj, options = {}) {
+  const preserveCustomPortraitWhenMissing = options.preserveCustomPortraitWhenMissing === true;
   const normalized = normalizeComposerConfigObject(obj);
   if (!normalized) {
     alert('配置格式不受支持（需要 version 或 v 为 ' + COMPOSER_CONFIG_FILE_VERSION + '）。');
@@ -1098,7 +1109,7 @@ async function applyComposerConfigFromObject(obj) {
           ? obj.customPortrait.scale
           : 1,
     };
-  } else {
+  } else if (!preserveCustomPortraitWhenMissing) {
     customPortraitImage = null;
   }
   updateCustomPortraitUI();
@@ -1193,7 +1204,10 @@ async function importComposerConfigFromClipboard() {
       alert('剪贴板为空或未粘贴内容。');
       return;
     }
-    await applyComposerConfigFromObject(parseComposerConfigFromText(raw));
+    await applyComposerConfigFromObject(
+      parseComposerConfigFromText(raw),
+      { preserveCustomPortraitWhenMissing: true }
+    );
     closeSettings();
     alert('已从剪贴板导入配置。');
   } catch (e) {
@@ -1235,8 +1249,7 @@ function toggleTheme() {
 }
 
 function updateCustomPortraitUI() {
-  const clearBtn = document.getElementById('clearCustomImageBtn');
-  const mobileClearBtn = document.getElementById('mobileClearCustomImageBtn');
+  const clearBtn = document.getElementById('customClearImageBtn');
   const nameEl = document.getElementById('customPortraitName');
   const scaleInput = document.getElementById('customPortraitScale');
   const scaleValue = document.getElementById('customPortraitScaleValue');
@@ -1246,7 +1259,6 @@ function updateCustomPortraitUI() {
   if (zipBtn) zipBtn.style.display = isWebRuntime() ? '' : 'none';
   if (jsxBtn) jsxBtn.style.display = isWebRuntime() ? 'none' : '';
   if (clearBtn) clearBtn.style.display = customPortraitImage ? '' : 'none';
-  if (mobileClearBtn) mobileClearBtn.style.display = customPortraitImage ? '' : 'none';
   if (nameEl) nameEl.textContent = customPortraitImage ? customPortraitImage.fileName : '未上传自定义图片';
   if (scaleInput) scaleInput.value = customPortraitImage ? String(customPortraitImage.scale) : '1';
   if (scaleValue) scaleValue.textContent = Math.round((customPortraitImage ? customPortraitImage.scale : 1) * 100) + '%';
@@ -1580,7 +1592,7 @@ async function applyPreset(type, name) {
     for (const layer of preset.layers) pushLayer(layer);
     await prefetchImgPaths(assignList.map(a => a.item.path));
     for (const { cat, item } of assignList) {
-      selected[cat] = { id: item.id, file: item.file, path: item.path };
+      selected[cat] = item;
       const el = document.getElementById('selected-' + cat);
       if (el) { el.src = item.path; el.style.display = 'block'; }
     }
@@ -1603,7 +1615,7 @@ async function applyPreset(type, name) {
     }
     await prefetchImgPaths(assignList.map(a => a.item.path));
     for (const { cat, item } of assignList) {
-      selected[cat] = { id: item.id, file: item.file, path: item.path };
+      selected[cat] = item;
       const el = document.getElementById('selected-' + cat);
       if (el) { el.src = item.path; el.style.display = 'block'; }
     }
@@ -1875,7 +1887,6 @@ async function switchPanelTab(panel) {
 async function clearAll() {
   if (!window.confirm('确定清空吗？')) return;
   [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => { selected[c] = null; });
-  customPortraitImage = null;
   updateCustomPortraitUI();
   await renderAll();
   schedulePersistComposerConfig();
@@ -2399,10 +2410,51 @@ async function exportCanvas() {
   }
 }
 
-function triggerDownload(canvas, suffix) {
+async function exportCanvasWhiteJpg() {
+  await exportCanvasWithSolidBgJpg('#ffffff', '_white');
+}
+
+async function exportCanvasBlackJpg() {
+  await exportCanvasWithSolidBgJpg('#000000', '_black');
+}
+
+async function exportCanvasWithSolidBgJpg(bgColor, nameSuffix) {
+  const canvas = document.getElementById('mainCanvas');
+  layerRenderDepth++;
+  scheduleLayerLoadingOverlay();
+  try {
+    await prefetchImgPaths(collectPathsForFullRender());
+    await renderFull();
+    const out = document.createElement('canvas');
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const ctx = out.getContext('2d');
+    if (!ctx) throw new Error('无法创建导出画布');
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(canvas, 0, 0);
+    triggerDownload(out, '_' + out.width + 'x' + out.height + nameSuffix + '.jpg', 'image/jpeg', 0.92);
+  } catch (e) {
+    console.error('[exportCanvasWithSolidBgJpg] failed:', e);
+    alert('导出 JPG 失败：' + (e?.message || e));
+  } finally {
+    layerRenderDepth--;
+    if (layerRenderDepth === 0) hideLayerLoadingOverlay();
+  }
+}
+
+function triggerDownload(canvas, suffix, mimeType = 'image/png', quality) {
+  const dataUrl =
+    typeof quality === 'number'
+      ? canvas.toDataURL(mimeType, quality)
+      : canvas.toDataURL(mimeType);
+  triggerDownloadDataUrl(dataUrl, suffix);
+}
+
+function triggerDownloadDataUrl(dataUrl, suffix) {
   const link = document.createElement('a');
   link.download = 'composite_' + Date.now() + suffix;
-  link.href = canvas.toDataURL('image/png');
+  link.href = dataUrl;
   link.click();
 }
 
@@ -2589,7 +2641,9 @@ async function exportLayeredZip() {
       body: JSON.stringify({
         layers,
         canvasWidth: CANVAS_FULL.w,
-        canvasHeight: CANVAS_FULL.h
+        canvasHeight: CANVAS_FULL.h,
+        // 让 ZIP 内 JSON 可直接被「从JSON导入」识别
+        composerConfig: collectComposerConfigCompactObject({ includeCustomPortrait: false }),
       })
     });
 
