@@ -65,14 +65,54 @@ header .subtitle { font-size: 11px; color: var(--text-dim); }
   top: 50%;
   transform: translateY(-50%);
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
 }
-#mobileActionBtn {
-  display: none;
+.desktop-export-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.desktop-export-actions .btn {
   font-size: 12px;
   padding: 4px 10px;
   white-space: nowrap;
+}
+#mobileActionBtn {
+  display: none;
+}
+.header-actions .header-icon-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.header-actions .header-icon-btn svg,
+.header-actions .header-icon-btn img {
+  width: 16px;
+  height: 16px;
+}
+.header-actions .header-icon-btn svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.header-actions .header-icon-btn img {
+  display: block;
+  object-fit: contain;
+  filter: none;
+}
+[data-theme="dark"] .header-actions .header-icon-btn img {
+  filter: brightness(0) saturate(100%) invert(100%);
+}
+#themeToggleIcon {
+  display: block;
 }
 
 /* === 主布局 === */
@@ -218,10 +258,22 @@ canvas { image-rendering: auto; }
   transition: background 0.2s, border-color 0.2s; flex-shrink: 0;
 }
 .check-dot.checked { background: var(--accent); border-color: var(--accent); }
-.section-right { display: flex; align-items: center; gap: 5px; }
-.coord-tag {
+.section-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.selected-layer-tag {
   font-size: 10px; color: var(--text-dim);
-  background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px;
+  background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 3px;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selected-layer-tag.empty {
+  opacity: 0.72;
 }
 .arrow { font-size: 8px; color: var(--text-dim); transition: transform 0.2s; }
 .layer-section.open .arrow { transform: rotate(90deg); }
@@ -375,6 +427,12 @@ canvas { image-rendering: auto; }
 #customPortraitAvatarGlyph { font-size: 26px; color: var(--text-dim); line-height: 1; user-select: none; }
 
 @media (max-width: 768px) {
+  .desktop-export-actions {
+    display: none;
+  }
+  .hide-on-mobile {
+    display: none !important;
+  }
   .main { flex-direction: column; }
   .canvas-area {
     flex: 0 0 47vh;
@@ -396,6 +454,7 @@ canvas { image-rendering: auto; }
   #mobileActionBtn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
   }
   .config-panel {
     width: 100%;
@@ -446,8 +505,23 @@ canvas { image-rendering: auto; }
     height: 44px;
   }
   .group-title { margin: 8px 0 6px; }
-  .layer-section { margin-bottom: 8px; }
-  .section-header { padding: 10px; }
+  .layer-section {
+    margin-bottom: 8px;
+    overflow: visible;
+  }
+  .section-header {
+    padding: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--card2);
+  }
+  .section-right {
+    max-width: 56%;
+  }
+  .selected-layer-tag {
+    max-width: 100%;
+  }
   .custom-upload-box { margin-bottom: 10px; }
 }
 
@@ -498,16 +572,34 @@ canvas { image-rendering: auto; }
   <h1>铭牌生成器</h1>
   <div class="subtitle">FF14铭牌DIY</div>
   <div class="header-actions">
-    <button type="button" class="btn btn-primary" id="mobileActionBtn" onclick="toggleMobileActionMenu()">操作 ▾</button>
+    <div class="desktop-export-actions">
+      <button class="btn btn-primary" onclick="void exportCanvas()">导出 PNG</button>
+      <button class="btn btn-secondary" id="exportLayeredZipBtn" onclick="exportLayeredZip()" style="display:none;background:#0ea5e9;">导出分层 ZIP</button>
+      <button class="btn btn-secondary" onclick="void exportComposerConfigToClipboard();">导出到剪贴板</button>
+    </div>
+    <button type="button" class="btn btn-primary header-icon-btn" id="mobileActionBtn" onclick="toggleMobileActionMenu()" title="下载与操作" aria-label="下载与操作">
+      <img id="downloadIcon" alt="" aria-hidden="true">
+    </button>
     <div class="mobile-action-list" id="mobileActionList" aria-hidden="true">
       <button class="btn btn-primary" onclick="void exportCanvas(); closeMobileActionMenu();">导出 PNG</button>
+      <button class="btn btn-secondary" onclick="void exportComposerConfigToClipboard(); closeMobileActionMenu();">导出到剪贴板</button>
       <!-- <button class="btn btn-secondary" onclick="void exportLayeredZip(); closeMobileActionMenu();" style="background:#0ea5e9;">导出分层 ZIP</button> -->
       <!-- <button class="btn btn-secondary" onclick="void exportPSDJSX(); closeMobileActionMenu();" style="background:#f59e0b;">导出PSD(JSX)</button> -->
       <button class="btn btn-ghost" onclick="void clearAll(); closeMobileActionMenu();">清空</button>
       <button class="btn btn-ghost" id="mobileClearCustomImageBtn" onclick="void clearCustomPortraitImage(); closeMobileActionMenu();" style="display:none;">清空自定义图片</button>
     </div>
-    <button type="button" class="btn btn-ghost" id="themeToggleBtn" onclick="toggleTheme()" title="切换浅色/深色" style="font-size:12px;padding:4px 10px;white-space:nowrap;"><span id="themeToggleIcon">☀</span> 昼夜</button>
-    <button type="button" class="btn btn-ghost" id="settingsBtn" onclick="openSettings()" title="设置" style="font-size:16px;padding:4px 8px;">⚙</button>
+    <button type="button" class="btn btn-ghost header-icon-btn" id="themeToggleBtn" onclick="toggleTheme()" title="切换浅色/深色" aria-label="切换浅色/深色">
+      <img id="themeToggleIcon" alt="" aria-hidden="true">
+    </button>
+    <button type="button" class="btn btn-ghost header-icon-btn" id="settingsBtn" onclick="openSettings()" title="设置" aria-label="设置">
+      <img id="settingsIcon" alt="" aria-hidden="true">
+    </button>
+    <div class="mobile-action-list" id="settingsActionList" aria-hidden="true" onmouseleave="closeSettingsMenu()">
+      <button class="btn btn-secondary hide-on-mobile" onclick="downloadComposerConfigJson(); closeSettingsMenu();">下载 JSON</button>
+      <button class="btn btn-ghost" onclick="void importComposerConfigFromClipboard(); closeSettingsMenu();">从剪贴板导入</button>
+      <button class="btn btn-ghost hide-on-mobile" onclick="triggerLoadComposerConfigFile(); closeSettingsMenu();">从JSON导入</button>
+    </div>
+    <input type="file" id="composerConfigFileInput" accept="application/json,.json" style="display:none" aria-hidden="true">
   </div>
 </header>
 
@@ -535,9 +627,6 @@ canvas { image-rendering: auto; }
         <button type="button" onclick="resetView()" title="重置缩放" style="font-size:11px;width:auto;padding:0 6px;">⊙</button>
       </div>
       <div class="desktop-action-buttons">
-        <button class="btn btn-primary" onclick="void exportCanvas()">导出 PNG</button>
-        <button class="btn btn-secondary" id="exportLayeredZipBtn" onclick="exportLayeredZip()" style="display:none;background:#0ea5e9;">导出分层 ZIP</button>
-        <button class="btn btn-secondary" id="exportPsdJsxBtn" onclick="exportPSDJSX()" style="background:#f59e0b;">导出PSD(JSX)</button>
         <button class="btn btn-ghost" onclick="clearAll()">清空</button>
         <button class="btn btn-ghost" id="clearCustomImageBtn" onclick="clearCustomPortraitImage()" style="display:none;">清空自定义图片</button>
       </div>
@@ -622,6 +711,13 @@ function appPath(rel) {
   const base = raw.replace(/\/$/, '');
   const p = rel.startsWith('/') ? rel : '/' + rel;
   return base ? base + p : p;
+}
+
+function applyHeaderIconPaths() {
+  const downloadIcon = document.getElementById('downloadIcon');
+  if (downloadIcon) downloadIcon.src = appPath('/download.svg');
+  const settingsIcon = document.getElementById('settingsIcon');
+  if (settingsIcon) settingsIcon.src = appPath('/setting.svg');
 }
 
 // ============================================================
@@ -753,7 +849,18 @@ function renderPresetSelects() {
   while (bannerSel.options.length > 1) bannerSel.remove(1);
   while (charSel.options.length > 1) charSel.remove(1);
 
-  presets.banner.forEach(p => {
+  // 肖像预设：名称包含“赛季”的项后置（保持各分组内原始顺序）
+  const bannerList = (Array.isArray(presets.banner) ? presets.banner : [])
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => {
+      const aSeason = String((a.p && a.p.name) || '').includes('赛季');
+      const bSeason = String((b.p && b.p.name) || '').includes('赛季');
+      if (aSeason !== bSeason) return aSeason ? 1 : -1;
+      return a.i - b.i;
+    })
+    .map(v => v.p);
+
+  bannerList.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.name;
     opt.textContent = p.name;
@@ -776,6 +883,7 @@ const THEME_KEY = 'iconComposerTheme';
 /** 网页端：图层/预设/视图等完整 UI 状态（localStorage，清除站点数据即消失） */
 const COMPOSER_CONFIG_STORAGE_KEY = 'iconComposer.ui.config.v1';
 const COMPOSER_CONFIG_FILE_VERSION = 1;
+const COMPOSER_CONFIG_CATS = [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'];
 
 let _persistComposerTimer = null;
 
@@ -795,9 +903,8 @@ function schedulePersistComposerConfig() {
 }
 
 function collectComposerConfigObject() {
-  const cats = [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'];
   const selectedSnap = {};
-  for (const c of cats) {
+  for (const c of COMPOSER_CONFIG_CATS) {
     const s = selected[c];
     selectedSnap[c] = s ? { id: s.id, file: s.file, path: s.path } : null;
   }
@@ -826,11 +933,124 @@ function collectComposerConfigObject() {
   };
 }
 
+function collectComposerConfigCompactObject(options = {}) {
+  const includeCustomPortrait = options.includeCustomPortrait !== false;
+  const pb = document.getElementById('presetBanner');
+  const pc = document.getElementById('presetChar');
+  const compact = {
+    v: COMPOSER_CONFIG_FILE_VERSION,
+    t: document.documentElement.getAttribute('data-theme') === 'dark' ? 'd' : 'l',
+    ps: portraitSide === 'left' ? 'l' : 'r',
+    ap: activePanel === 'nameplate' ? 'n' : 'p',
+    z: Number.isFinite(zoomLevel) ? Math.round(zoomLevel * 1000) / 1000 : 1,
+    pb: pb ? pb.value : '',
+    pc: pc ? pc.value : '',
+    sl: COMPOSER_CONFIG_CATS.map(cat => {
+      const s = selected[cat];
+      return s && s.id != null ? String(s.id) : '';
+    }),
+    cp: null,
+  };
+  if (includeCustomPortrait && customPortraitImage && customPortraitImage.dataUrl) {
+    compact.cp = {
+      d: customPortraitImage.dataUrl,
+      n: customPortraitImage.fileName || '',
+      s:
+        typeof customPortraitImage.scale === 'number' && Number.isFinite(customPortraitImage.scale)
+          ? Math.round(customPortraitImage.scale * 1000) / 1000
+          : 1,
+    };
+  }
+  return compact;
+}
+
+function serializeComposerConfigClipboardText() {
+  const compact = collectComposerConfigCompactObject({ includeCustomPortrait: false });
+  const params = new URLSearchParams();
+  params.set('t', compact.t || 'd');
+  params.set('ps', compact.ps || 'r');
+  params.set('ap', compact.ap || 'p');
+  params.set(
+    'z',
+    typeof compact.z === 'number' && Number.isFinite(compact.z)
+      ? String(Math.round(compact.z * 1000) / 1000)
+      : '1'
+  );
+  params.set('pb', typeof compact.pb === 'string' ? compact.pb : '');
+  params.set('pc', typeof compact.pc === 'string' ? compact.pc : '');
+  params.set('sl', Array.isArray(compact.sl) ? compact.sl.join(',') : '');
+  return 'IC1?' + params.toString();
+}
+
+function parseComposerConfigFromText(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch (_) {
+    // ignore and try compact text format
+  }
+  const text = String(raw || '').trim();
+  if (/^IC1\?/i.test(text)) {
+    const qIdx = text.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? text.slice(qIdx + 1) : '');
+    const zRaw = params.get('z');
+    const z = zRaw == null || zRaw === '' ? 1 : Number(zRaw);
+    return {
+      v: COMPOSER_CONFIG_FILE_VERSION,
+      t: params.get('t') || 'd',
+      ps: params.get('ps') || 'r',
+      ap: params.get('ap') || 'p',
+      z: Number.isFinite(z) ? z : 1,
+      pb: params.get('pb') || '',
+      pc: params.get('pc') || '',
+      sl: (params.get('sl') || '').split(','),
+      cp: null,
+    };
+  }
+  throw new Error('无法识别配置格式（支持 JSON 或 IC1? 参数串）');
+}
+
+function normalizeComposerConfigObject(obj) {
+  if (obj && obj.version === COMPOSER_CONFIG_FILE_VERSION) return obj;
+  if (!obj || obj.v !== COMPOSER_CONFIG_FILE_VERSION) return null;
+  const selectedSnap = {};
+  const arr = Array.isArray(obj.sl) ? obj.sl : [];
+  COMPOSER_CONFIG_CATS.forEach((cat, idx) => {
+    const raw = arr[idx];
+    selectedSnap[cat] = raw ? { id: String(raw) } : null;
+  });
+  const out = {
+    version: COMPOSER_CONFIG_FILE_VERSION,
+    theme: obj.t === 'dark' || obj.t === 'd' ? 'dark' : 'light',
+    portraitSide: obj.ps === 'left' || obj.ps === 'l' ? 'left' : 'right',
+    activePanel: obj.ap === 'nameplate' || obj.ap === 'n' ? 'nameplate' : 'portrait',
+    activeTab: 'full',
+    zoomLevel: typeof obj.z === 'number' && Number.isFinite(obj.z) ? obj.z : 1,
+    viewOffset: { x: 0, y: 0 },
+    presetBanner: typeof obj.pb === 'string' ? obj.pb : '',
+    presetChar: typeof obj.pc === 'string' ? obj.pc : '',
+    selected: selectedSnap,
+    customPortrait: null,
+  };
+  if (obj.cp && typeof obj.cp === 'object' && typeof obj.cp.d === 'string' && obj.cp.d) {
+    out.customPortrait = {
+      dataUrl: obj.cp.d,
+      fileName: typeof obj.cp.n === 'string' ? obj.cp.n : 'custom.png',
+      scale:
+        typeof obj.cp.s === 'number' && Number.isFinite(obj.cp.s)
+          ? obj.cp.s
+          : 1,
+    };
+  }
+  return out;
+}
+
 async function applyComposerConfigFromObject(obj) {
-  if (!obj || obj.version !== COMPOSER_CONFIG_FILE_VERSION) {
-    alert('配置文件版本不受支持（需要 version: ' + COMPOSER_CONFIG_FILE_VERSION + '）');
+  const normalized = normalizeComposerConfigObject(obj);
+  if (!normalized) {
+    alert('配置格式不受支持（需要 version 或 v 为 ' + COMPOSER_CONFIG_FILE_VERSION + '）。');
     return;
   }
+  obj = normalized;
   if (obj.theme === 'light' || obj.theme === 'dark') {
     localStorage.setItem(THEME_KEY, obj.theme);
     applyThemeFromStorage();
@@ -845,9 +1065,8 @@ async function applyComposerConfigFromObject(obj) {
   if (pb && typeof obj.presetBanner === 'string') pb.value = obj.presetBanner;
   if (pc && typeof obj.presetChar === 'string') pc.value = obj.presetChar;
 
-  const cats = [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'];
   if (obj.selected && typeof obj.selected === 'object') {
-    for (const c of cats) {
+    for (const c of COMPOSER_CONFIG_CATS) {
       const snap = obj.selected[c];
       if (!snap || snap.id == null || snap.id === '') {
         selected[c] = null;
@@ -912,22 +1131,6 @@ async function tryRestoreComposerConfigFromLocalStorage() {
   }
 }
 
-function saveComposerConfigToBrowser() {
-  try {
-    localStorage.setItem(
-      COMPOSER_CONFIG_STORAGE_KEY,
-      JSON.stringify(collectComposerConfigObject())
-    );
-    alert('已保存到浏览器本地存储（与站点同源；清除该站点的缓存/数据后会丢失）。');
-  } catch (e) {
-    if (e && (e.name === 'QuotaExceededError' || e.code === 22)) {
-      alert('内容超出浏览器存储配额，请使用「下载 JSON」备份，或缩小自定义肖像图。');
-    } else {
-      alert('保存失败：' + (e && e.message ? e.message : e));
-    }
-  }
-}
-
 function downloadComposerConfigJson() {
   const data = collectComposerConfigObject();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
@@ -939,28 +1142,74 @@ function downloadComposerConfigJson() {
   URL.revokeObjectURL(a.href);
 }
 
-async function loadComposerConfigFromBrowser() {
-  const raw = localStorage.getItem(COMPOSER_CONFIG_STORAGE_KEY);
-  if (!raw) {
-    alert('浏览器中暂无已保存的配置。请先使用「仅保存到浏览器」或编辑后由页面自动缓存。');
-    return;
-  }
+async function writeTextToClipboard(text) {
   try {
-    await applyComposerConfigFromObject(JSON.parse(raw));
-    alert('已从浏览器载入配置。');
+    if (navigator.clipboard && window.isSecureContext && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
   } catch (e) {
-    alert('载入失败：' + (e && e.message ? e.message : e));
+    // ignore and fallback
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', 'readonly');
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length);
+  const ok = document.execCommand && document.execCommand('copy');
+  document.body.removeChild(ta);
+  if (!ok) throw new Error('当前环境不支持自动写入剪贴板');
+}
+
+async function readTextFromClipboardOrPrompt() {
+  try {
+    if (navigator.clipboard && window.isSecureContext && navigator.clipboard.readText) {
+      return await navigator.clipboard.readText();
+    }
+  } catch (e) {
+    // ignore and fallback
+  }
+  return window.prompt('当前环境无法直接读取剪贴板，请粘贴配置文本（JSON 或 IC1）：', '') || '';
+}
+
+async function exportComposerConfigToClipboard() {
+  try {
+    const text = serializeComposerConfigClipboardText();
+    await writeTextToClipboard(text);
+    alert('已导出到剪贴板（不包含自定义图片）。');
+  } catch (e) {
+    alert('导出失败：' + (e && e.message ? e.message : e));
   }
 }
 
-function clearComposerConfigFromBrowser() {
-  localStorage.removeItem(COMPOSER_CONFIG_STORAGE_KEY);
-  alert('已清除浏览器中保存的配置备份（昼夜主题仍使用当前设置）。');
+async function importComposerConfigFromClipboard() {
+  try {
+    const raw = (await readTextFromClipboardOrPrompt()).trim();
+    if (!raw) {
+      alert('剪贴板为空或未粘贴内容。');
+      return;
+    }
+    await applyComposerConfigFromObject(parseComposerConfigFromText(raw));
+    closeSettings();
+    alert('已从剪贴板导入配置。');
+  } catch (e) {
+    alert('导入失败：' + (e && e.message ? e.message : e));
+  }
 }
 
 function triggerLoadComposerConfigFile() {
   const inp = document.getElementById('composerConfigFileInput');
   if (inp) inp.click();
+}
+
+function renderThemeToggleIcon(theme) {
+  const icon = document.getElementById('themeToggleIcon');
+  if (!icon) return;
+  icon.src = theme === 'dark' ? appPath('/sun.svg') : appPath('/moon.svg');
 }
 
 function applyThemeFromStorage() {
@@ -970,12 +1219,10 @@ function applyThemeFromStorage() {
   }
   document.documentElement.setAttribute('data-theme', t);
   const btn = document.getElementById('themeToggleBtn');
-  const icon = document.getElementById('themeToggleIcon');
-  if (icon) {
-    icon.textContent = t === 'dark' ? '☀' : '🌙';
-  }
+  renderThemeToggleIcon(t);
   if (btn) {
     btn.title = t === 'dark' ? '切换为浅色' : '切换为深色';
+    btn.setAttribute('aria-label', btn.title);
   }
 }
 
@@ -1287,6 +1534,7 @@ function setCustomPortraitScale(value) {
 }
 
 async function clearCustomPortraitImage() {
+  if (!window.confirm('确定清空自定义图片吗？')) return;
   customPortraitImage = null;
   updateCustomPortraitUI();
   await render();
@@ -1312,10 +1560,8 @@ async function applyPreset(type, name) {
   if (!preset) return;
 
   if (type === 'charcard') {
-    // 先检查是否有同名肖像预设
-    const bannerPreset = presets.banner.find(p => p.name === name);
-    // 清空所有选择
-    [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => {
+    // 铭牌预设：仅更新铭牌侧图层，不改肖像侧三层
+    [...NAMEPLATE_CATS, '肖像外框'].forEach(c => {
       selected[c] = null;
       const el = document.getElementById('selected-' + c);
       if (el) { el.src = ''; el.style.display = 'none'; }
@@ -1325,14 +1571,12 @@ async function applyPreset(type, name) {
       const cat = layer.cat;
       const id = layer.id;
       if (!id) return;
+      if (PORTRAIT_CATS.includes(cat)) return; // 保留当前肖像三层
       const fd = layerListFor(cat);
       const item = fd.find(f => f.id === String(id));
       if (!item) { console.log('[preset] 未找到', cat, id); return; }
       assignList.push({ cat, item });
     };
-    if (bannerPreset) {
-      for (const layer of bannerPreset.layers) pushLayer(layer);
-    }
     for (const layer of preset.layers) pushLayer(layer);
     await prefetchImgPaths(assignList.map(a => a.item.path));
     for (const { cat, item } of assignList) {
@@ -1422,10 +1666,57 @@ function renderNameplateSections() {
   });
 }
 
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function selectedLabelForCategory(cat) {
+  const cur = selected[cat];
+  if (!cur) return '未选择';
+  return cur.name || cur.file || String(cur.id || '未选择');
+}
+
+function isSeasonLayerItem(item) {
+  const label = String((item && (item.name || item.file || item.id)) || '');
+  return label.includes('赛季');
+}
+
+function sortFilesForSection(cat, files) {
+  if (!Array.isArray(files)) return [];
+  if (files.length <= 1) return files;
+  const isSortableLayerGroup =
+    PORTRAIT_CATS.includes(cat) || NAMEPLATE_CATS.includes(cat) || cat === '肖像外框';
+  if (!isSortableLayerGroup) return files;
+  return files
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const aSeason = isSeasonLayerItem(a.item);
+      const bSeason = isSeasonLayerItem(b.item);
+      if (aSeason !== bSeason) return aSeason ? 1 : -1;
+      return a.index - b.index;
+    })
+    .map(v => v.item);
+}
+
+function updateSelectedLayerLabel(cat) {
+  const el = document.getElementById('selname-' + cat);
+  if (!el) return;
+  const label = selectedLabelForCategory(cat);
+  el.textContent = label;
+  el.title = label;
+  el.classList.toggle('empty', !selected[cat]);
+}
+
 function buildSection(cat, files) {
   const sel = selected[cat];
-  const coord = LAYER_COORDS[cat];
-  const posStr = coord ? `(${coord.x}, ${coord.y})` : '';
+  const displayFiles = sortFilesForSection(cat, files);
+  const selectedName = selectedLabelForCategory(cat);
+  const selectedNameEscaped = escapeHtml(selectedName);
 
   const section = document.createElement('div');
   section.className = 'layer-section';
@@ -1437,20 +1728,19 @@ function buildSection(cat, files) {
         <span>${cat}</span>
       </div>
       <div class="section-right">
-        ${posStr ? `<span class="coord-tag">${posStr}</span>` : ''}
-        ${files.length > 0 ? `<span class="coord-tag">${files.length}</span>` : ''}
+        <span class="selected-layer-tag ${sel ? '' : 'empty'}" id="selname-${cat}" title="${selectedNameEscaped}">${selectedNameEscaped}</span>
         <span class="arrow">&#9654;</span>
       </div>
     </div>
     <div class="section-body">
       <div class="thumb-row" id="row-${cat}">
-        ${files.length === 0 ? '<div class="no-imgs">暂无素材</div>' : ''}
+        ${displayFiles.length === 0 ? '<div class="no-imgs">暂无素材</div>' : ''}
       </div>
     </div>
   `;
 
   const row = section.querySelector(`[id="row-${cat}"]`);
-  files.forEach(item => {
+  displayFiles.forEach(item => {
     const thumb = document.createElement('div');
     thumb.className = 'thumb-item' + (sel && sel.id === item.id ? ' selected' : '');
     thumb.dataset.thumbId = String(item.id);
@@ -1519,12 +1809,14 @@ async function pickItem(cat, item) {
     if (r2) r2.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('selected'));
     const chk2 = document.getElementById('chk-铭牌装饰物B');
     if (chk2) chk2.className = 'check-dot';
+    updateSelectedLayerLabel('铭牌装饰物B');
   } else if (cat === '铭牌装饰物B') {
     selected['铭牌装饰物'] = null;
     const r2 = document.getElementById('row-铭牌装饰物');
     if (r2) r2.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('selected'));
     const chk2 = document.getElementById('chk-铭牌装饰物');
     if (chk2) chk2.className = 'check-dot';
+    updateSelectedLayerLabel('铭牌装饰物');
   }
   
   // 先清除该分类下所有缩略图的高亮
@@ -1548,6 +1840,7 @@ async function pickItem(cat, item) {
   
   const chk = document.getElementById('chk-' + cat);
   if (chk) chk.className = 'check-dot' + (selected[cat] ? ' checked' : '');
+  updateSelectedLayerLabel(cat);
 
   await render();
   schedulePersistComposerConfig();
@@ -1580,6 +1873,7 @@ async function switchPanelTab(panel) {
 }
 
 async function clearAll() {
+  if (!window.confirm('确定清空吗？')) return;
   [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => { selected[c] = null; });
   customPortraitImage = null;
   updateCustomPortraitUI();
@@ -2035,6 +2329,7 @@ function resetView() {
 function toggleMobileActionMenu() {
   const list = document.getElementById('mobileActionList');
   if (!list) return;
+  closeSettingsMenu();
   const open = list.classList.toggle('open');
   list.setAttribute('aria-hidden', open ? 'false' : 'true');
 }
@@ -2046,12 +2341,39 @@ function closeMobileActionMenu() {
   list.setAttribute('aria-hidden', 'true');
 }
 
+function toggleSettingsMenu() {
+  const list = document.getElementById('settingsActionList');
+  if (!list) return;
+  closeMobileActionMenu();
+  const open = list.classList.toggle('open');
+  list.setAttribute('aria-hidden', open ? 'false' : 'true');
+}
+
+function closeSettingsMenu() {
+  const list = document.getElementById('settingsActionList');
+  if (!list || !list.classList.contains('open')) return;
+  list.classList.remove('open');
+  list.setAttribute('aria-hidden', 'true');
+}
+
+function openSettings() {
+  toggleSettingsMenu();
+}
+
+function closeSettings() {
+  closeSettingsMenu();
+}
+
 document.addEventListener('click', event => {
-  const list = document.getElementById('mobileActionList');
-  const button = document.getElementById('mobileActionBtn');
-  if (!list || !button) return;
-  if (list.classList.contains('open') && !event.target.closest('#mobileActionBtn') && !event.target.closest('#mobileActionList')) {
+  const mobileList = document.getElementById('mobileActionList');
+  const mobileButton = document.getElementById('mobileActionBtn');
+  if (mobileList && mobileButton && mobileList.classList.contains('open') && !event.target.closest('#mobileActionBtn') && !event.target.closest('#mobileActionList')) {
     closeMobileActionMenu();
+  }
+  const settingsList = document.getElementById('settingsActionList');
+  const settingsButton = document.getElementById('settingsBtn');
+  if (settingsList && settingsButton && settingsList.classList.contains('open') && !event.target.closest('#settingsBtn') && !event.target.closest('#settingsActionList')) {
+    closeSettingsMenu();
   }
 });
 
@@ -2307,46 +2629,12 @@ function arrayBufferToBase64(buffer) {
 // 启动
 // ============================================================
 setupCustomCropCanvasListeners();
+applyHeaderIconPaths();
 applyThemeFromStorage();
 init();
 </script>
 
-<!-- Settings Modal -->
-<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:#1e1e2e;padding:28px;border-radius:12px;min-width:360px;max-width:520px;color:#cdd6f4;font-family:sans-serif;">
-    <h2 style="margin:0 0 20px;font-size:18px;">⚙ 设置</h2>
-
-    <div id="settingsComposerConfig" style="margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid #313244;">
-      <div style="font-size:13px;color:#cdd6f4;margin-bottom:8px;font-weight:600;">配置备份（JSON）</div>
-      <p style="font-size:11px;color:#a6adc8;line-height:1.5;margin-bottom:12px;">
-        使用浏览器 <strong>localStorage</strong> 保存（与站点同源）；清除该站点的缓存或网站数据后会丢失，不会写入 Cookie。
-        页面会在你调整图层、预设、视图后<strong>自动写入</strong>；也可手动保存或下载文件换机使用。
-      </p>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;">
-        <button type="button" class="btn btn-secondary" onclick="saveComposerConfigToBrowser()" style="font-size:12px;padding:5px 10px;">仅保存到浏览器</button>
-        <button type="button" class="btn btn-secondary" onclick="downloadComposerConfigJson()" style="font-size:12px;padding:5px 10px;">下载 JSON</button>
-        <button type="button" class="btn btn-ghost" onclick="void loadComposerConfigFromBrowser()" style="font-size:12px;padding:5px 10px;">从浏览器载入</button>
-        <button type="button" class="btn btn-ghost" onclick="triggerLoadComposerConfigFile()" style="font-size:12px;padding:5px 10px;">从文件载入</button>
-        <button type="button" class="btn btn-ghost" onclick="clearComposerConfigFromBrowser()" style="font-size:12px;padding:5px 10px;">清除浏览器备份</button>
-      </div>
-      <input type="file" id="composerConfigFileInput" accept="application/json,.json" style="display:none" aria-hidden="true">
-    </div>
-
-    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
-      <button type="button" class="btn btn-ghost" onclick="closeSettings()" style="font-size:13px;padding:6px 16px;">关闭</button>
-    </div>
-  </div>
-</div>
-
 <script>
-function openSettings() {
-  document.getElementById('settingsModal').style.display = 'flex';
-}
-
-function closeSettings() {
-  document.getElementById('settingsModal').style.display = 'none';
-}
-
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   const cropModal = document.getElementById('customCropModal');
@@ -2354,9 +2642,9 @@ document.addEventListener('keydown', e => {
     cancelCustomCrop();
     return;
   }
-  const modal = document.getElementById('settingsModal');
-  if (modal && modal.style.display === 'flex') {
-    closeSettings();
+  const settingsMenu = document.getElementById('settingsActionList');
+  if (settingsMenu && settingsMenu.classList.contains('open')) {
+    closeSettingsMenu();
     return;
   }
   if (pendingCustomPick) {
@@ -2376,11 +2664,11 @@ document.addEventListener('keydown', e => {
     if (!f) return;
     try {
       const text = await f.text();
-      await applyComposerConfigFromObject(JSON.parse(text));
-      closeSettings();
-      alert('已从文件载入配置。');
+      await applyComposerConfigFromObject(parseComposerConfigFromText(text));
+      closeSettingsMenu();
+      alert('已从JSON导入配置。');
     } catch (e) {
-      alert('载入失败：' + (e && e.message ? e.message : e));
+      alert('导入失败：' + (e && e.message ? e.message : e));
     }
   });
 })();
