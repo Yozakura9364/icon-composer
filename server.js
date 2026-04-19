@@ -568,7 +568,7 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const rawBody = Buffer.concat(body).toString('utf8');
-        const { layers, canvasWidth, canvasHeight, composerConfig } = JSON.parse(rawBody);
+        const { layers, canvasWidth, canvasHeight, composerConfigFull } = JSON.parse(rawBody);
         if (!Array.isArray(layers) || layers.length === 0) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'No layers provided' }));
@@ -592,57 +592,23 @@ const server = http.createServer((req, res) => {
           })),
         };
 
-        // 若前端带了 compact 配置（v/sl/...），将其合并到 ZIP JSON 顶层，
-        // 这样 layers.json / manifest.json 可直接作为「从JSON导入」输入。
-        const importableTopLevel =
-          composerConfig &&
-          typeof composerConfig === 'object' &&
-          Number(composerConfig.v) === 1 &&
-          Array.isArray(composerConfig.sl)
-            ? {
-                v: 1,
-                t: composerConfig.t === 'l' || composerConfig.t === 'light' ? 'l' : 'd',
-                ps: composerConfig.ps === 'l' || composerConfig.ps === 'left' ? 'l' : 'r',
-                ap: composerConfig.ap === 'n' || composerConfig.ap === 'nameplate' ? 'n' : 'p',
-                z:
-                  typeof composerConfig.z === 'number' && Number.isFinite(composerConfig.z)
-                    ? composerConfig.z
-                    : 1,
-                pb: typeof composerConfig.pb === 'string' ? composerConfig.pb : '',
-                pc: typeof composerConfig.pc === 'string' ? composerConfig.pc : '',
-                sl: composerConfig.sl.map(v => (v == null ? '' : String(v))),
-                cp:
-                  composerConfig.cp &&
-                  typeof composerConfig.cp === 'object' &&
-                  typeof composerConfig.cp.d === 'string' &&
-                  composerConfig.cp.d
-                    ? {
-                        d: composerConfig.cp.d,
-                        n: typeof composerConfig.cp.n === 'string' ? composerConfig.cp.n : '',
-                        s:
-                          typeof composerConfig.cp.s === 'number' &&
-                          Number.isFinite(composerConfig.cp.s)
-                            ? composerConfig.cp.s
-                            : 1,
-                      }
-                    : null,
-              }
-            : null;
-
-        const zipJson =
-          importableTopLevel
-            ? { ...manifest, ...importableTopLevel }
-            : manifest;
-
+        /** 与 ZIP 内 L000.png 等对应的画布坐标说明（供外部工具对齐 PNG，不是网页「从JSON导入」格式） */
         const zipfile = new yazl.ZipFile();
-        zipfile.addBuffer(
-          Buffer.from(JSON.stringify(zipJson, null, 2), 'utf8'),
-          'layers.json'
-        );
-        zipfile.addBuffer(
-          Buffer.from(JSON.stringify(zipJson, null, 2), 'utf8'),
-          'manifest.json'
-        );
+        const manifestJson = JSON.stringify(manifest, null, 2);
+        zipfile.addBuffer(Buffer.from(manifestJson, 'utf8'), 'layers.json');
+        zipfile.addBuffer(Buffer.from(manifestJson, 'utf8'), 'manifest.json');
+
+        /** 与「导出 JSON」相同结构，用于网页恢复图层/预设/主题等；请用此文件做「从JSON导入」 */
+        if (
+          composerConfigFull &&
+          typeof composerConfigFull === 'object' &&
+          Number(composerConfigFull.version) === 1
+        ) {
+          zipfile.addBuffer(
+            Buffer.from(JSON.stringify(composerConfigFull, null, 2), 'utf8'),
+            'composer-config.json'
+          );
+        }
         for (let i = 0; i < layers.length; i++) {
           const ly = layers[i];
           const entryName = `L${String(i).padStart(3, '0')}.png`;
