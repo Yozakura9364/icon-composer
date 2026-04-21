@@ -1,0 +1,9 @@
+@font-face {
+    font-family: 'Trump Gothic Pro';
+    src: local('Trump Gothic Pro Regular'), local('Trump-Gothic-Pro-Regular'),
+        url('TrumpGothicPro.woff2') format('woff2'),
+        url('TrumpGothicPro.woff') format('woff'),
+        url('TrumpGothicPro.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+  }

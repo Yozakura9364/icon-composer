@@ -15,6 +15,8 @@ const args = process.argv.slice(2);
 let ICON_ROOT =
   process.env.ICON_COMPOSER_MATERIALS ||
   path.join(__dirname, 'ui', 'icon');
+/** 写入 api 的素材路径相对仓库根目录（与 ICON_ROOT 默认一致） */
+const REL_UI_ICON = path.join('ui', 'icon').replace(/\\/g, '/');
 let EXPORT_ROOT = process.env.ICON_COMPOSER_EXPORT || null;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--materials' && args[i + 1]) ICON_ROOT = args[++i];
@@ -108,6 +110,277 @@ const LAYER_CATEGORIES = [
   // 234xxx 是另一组装饰物，缩放0.75
   { name: '铭牌装饰物B',  min: 234401, max: 234499, canvas: 'nameplate', scale: 0.75 },
 ];
+const INFO_ICON_EXTRA_SOURCES = [
+  { category: '职业图标', relDir: path.join('ui', 'sprites', 'class') },
+  { category: '装饰图标', relDir: path.join('ui', 'info-custom') },
+  {
+    category: '军衔图标',
+    rules: [
+      { folder: '083000', min: 83001, max: 83020 },
+      { folder: '083000', min: 83051, max: 83070 },
+      { folder: '083000', min: 83101, max: 83120 },
+    ],
+  },
+];
+const INFO_ICON_EXTRA_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg']);
+const INFO_SPECIAL_BG_CATEGORY = '国际服寓意背景';
+const INFO_SPECIAL_MASK_CATEGORY = '国际服上色蒙版';
+const INFO_SPECIAL_SYMBOL_CATEGORY = '国际服寓意物';
+const INFO_SPECIAL_SYMBOL_INCLUDE_FILES = ['091000_hr1.png', '091001_hr1.png', '091002_hr1.png'];
+const INFO_SPECIAL_CATEGORY_RULES = [
+  {
+    category: INFO_SPECIAL_BG_CATEGORY,
+    rules: [{ folder: '090000', min: 90401, max: 90463 }],
+  },
+  {
+    category: INFO_SPECIAL_MASK_CATEGORY,
+    rules: [{ folder: '090000', min: 90200, max: 90263 }],
+  },
+  {
+    category: INFO_SPECIAL_SYMBOL_CATEGORY,
+    rules: [
+      {
+        folder: '091000',
+        min: 91000,
+        max: 91999,
+        skipIdMod1000Le: 2,
+        includeFiles: INFO_SPECIAL_SYMBOL_INCLUDE_FILES,
+      },
+      { folder: '092000', min: 92000, max: 92999, skipIdMod1000Le: 2 },
+      { folder: '093000', min: 93000, max: 93999, skipIdMod1000Le: 2 },
+      { folder: '094000', min: 94000, max: 94999, skipIdMod1000Le: 2 },
+    ],
+  },
+];
+
+function normalizePriorityIdsFromRules(rules) {
+  const ids = [];
+  const seen = new Set();
+  const list = Array.isArray(rules) ? rules : [];
+  for (const rule of list) {
+    if (!rule || !Array.isArray(rule.includeFiles)) continue;
+    for (const rawName of rule.includeFiles) {
+      const parsed = parseIconNumericIdFromFile(rawName);
+      if (!parsed) continue;
+      if (seen.has(parsed.numStr)) continue;
+      seen.add(parsed.numStr);
+      ids.push(parsed.numStr);
+    }
+  }
+  return ids;
+}
+
+function reorderEntriesByPriorityIds(entries, priorityIds) {
+  const list = Array.isArray(entries) ? entries : [];
+  const ids = Array.isArray(priorityIds) ? priorityIds : [];
+  if (!list.length || !ids.length) return list;
+  const idSet = new Set(ids);
+  const byId = new Map();
+  const rest = [];
+  for (const item of list) {
+    const id = item && item.id != null ? String(item.id) : '';
+    if (!id) continue;
+    if (!byId.has(id)) byId.set(id, item);
+    if (!idSet.has(id)) rest.push(item);
+  }
+  const front = [];
+  const frontSeen = new Set();
+  for (const id of ids) {
+    if (frontSeen.has(id)) continue;
+    frontSeen.add(id);
+    const item = byId.get(id);
+    if (item) front.push(item);
+  }
+  return [...front, ...rest];
+}
+
+function scanInfoIconExtraFiles(relDir) {
+  const absDir = path.join(__dirname, relDir);
+  const out = [];
+  let files = [];
+  try {
+    files = fs.readdirSync(absDir);
+  } catch (_) {
+    return out;
+  }
+
+  for (const file of files) {
+    const full = path.join(absDir, file);
+    let st;
+    try {
+      st = fs.statSync(full);
+    } catch (_) {
+      continue;
+    }
+    if (!st.isFile()) continue;
+    const ext = path.extname(file).toLowerCase();
+    if (!INFO_ICON_EXTRA_EXTS.has(ext)) continue;
+
+    const stem = file.slice(0, file.length - ext.length);
+    out.push({
+      id: file,
+      file,
+      // 相对路径（前端会按 appPath('/ui/sprites/class/...') 访问）
+      path: `${relDir.replace(/\\/g, '/')}/${encodeURIComponent(file)}`,
+      name: stem || file,
+    });
+  }
+
+  out.sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hans-CN'));
+  return out;
+}
+
+function parseIconNumericIdFromFile(file) {
+  const numStr = String(file || '').split('_')[0];
+  if (!/^\d{6}$/.test(numStr)) return null;
+  const num = parseInt(numStr, 10);
+  if (!Number.isFinite(num)) return null;
+  return { numStr, num };
+}
+
+function injectInfoIconExtraCategory(data) {
+  const source = data && typeof data === 'object' ? data : { portrait: {}, nameplate: {} };
+  const portrait = source.portrait && typeof source.portrait === 'object' ? source.portrait : {};
+  const nameplateSrc = source.nameplate && typeof source.nameplate === 'object' ? source.nameplate : {};
+  const nameplate = { ...nameplateSrc };
+  for (const extra of INFO_ICON_EXTRA_SOURCES) {
+    if (!extra || !extra.category) continue;
+    if (Array.isArray(extra.rules) && extra.rules.length > 0) {
+      const scanned = scanInfoSpecialFilesByRules(extra.rules);
+      nameplate[extra.category] =
+        scanned.length > 0 ? scanned : buildVirtualIconFilesByRules(extra.rules);
+      continue;
+    }
+    if (!extra.relDir) continue;
+    nameplate[extra.category] = scanInfoIconExtraFiles(extra.relDir);
+  }
+  return { portrait, nameplate };
+}
+
+function buildVirtualIconFilesByRules(rules) {
+  const out = [];
+  const seen = new Set();
+  const list = Array.isArray(rules) ? rules : [];
+  const pushEntry = (folder, file, num) => {
+    const key = `${folder}/${file}`.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    const id = String(num).padStart(6, '0');
+    out.push({
+      id,
+      file,
+      path: `${REL_UI_ICON}/${folder}/${file}`.replace(/\\/g, '/'),
+      name: idNames[num] || null,
+    });
+  };
+
+  for (const rule of list) {
+    if (!rule || !rule.folder) continue;
+    const folder = String(rule.folder);
+    if (!/^\d{6}$/.test(folder)) continue;
+    const min = Number(rule.min);
+    const max = Number(rule.max);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max < min) continue;
+    for (let num = Math.trunc(min); num <= Math.trunc(max); num += 1) {
+      if (!Number.isFinite(num) || num < 0 || num > 999999) continue;
+      if (rule.skipIdMod1000Le != null) {
+        const mod = num % 1000;
+        if (mod <= Number(rule.skipIdMod1000Le)) continue;
+      }
+      const id = String(num).padStart(6, '0');
+      pushEntry(folder, `${id}_hr1.png`, num);
+    }
+    if (Array.isArray(rule.includeFiles)) {
+      for (const rawName of rule.includeFiles) {
+        const file = String(rawName || '').trim();
+        if (!file) continue;
+        const parsed = parseIconNumericIdFromFile(file);
+        if (!parsed) continue;
+        pushEntry(folder, file, parsed.num);
+      }
+    }
+  }
+
+  out.sort((a, b) => Number(a.id) - Number(b.id));
+  return reorderEntriesByPriorityIds(out, normalizePriorityIdsFromRules(rules));
+}
+
+function scanInfoSpecialFilesByRules(rules) {
+  const out = [];
+  const list = Array.isArray(rules) ? rules : [];
+  for (const rule of list) {
+    if (!rule || !rule.folder) continue;
+    const folder = String(rule.folder);
+    if (!/^\d{6}$/.test(folder)) continue;
+    const includeFileSet = Array.isArray(rule.includeFiles)
+      ? new Set(rule.includeFiles.map(name => String(name || '').trim().toLowerCase()).filter(Boolean))
+      : null;
+    const folderPath = path.join(ICON_ROOT, folder);
+    let files = [];
+    try {
+      files = fs.readdirSync(folderPath).filter(f => /\.png$/i.test(f));
+    } catch (_) {
+      continue;
+    }
+    for (const file of files) {
+      const parsed = parseIconNumericIdFromFile(file);
+      if (!parsed) continue;
+      const { numStr, num } = parsed;
+      if (num < Number(rule.min) || num > Number(rule.max)) continue;
+      const normalizedFile = String(file || '').trim().toLowerCase();
+      const forceInclude = !!(includeFileSet && includeFileSet.has(normalizedFile));
+      if (rule.skipIdMod1000Le != null) {
+        const mod = num % 1000;
+        if (!forceInclude && mod <= Number(rule.skipIdMod1000Le)) continue;
+      }
+      out.push({
+        id: numStr,
+        file,
+        path: `${REL_UI_ICON}/${folder}/${file}`.replace(/\\/g, '/'),
+        name: idNames[num] || null,
+      });
+    }
+  }
+  out.sort((a, b) => Number(a.id) - Number(b.id));
+  return reorderEntriesByPriorityIds(out, normalizePriorityIdsFromRules(rules));
+}
+
+function injectInfoSpecialCategories(data) {
+  const source = data && typeof data === 'object' ? data : { portrait: {}, nameplate: {} };
+  const portrait = source.portrait && typeof source.portrait === 'object' ? source.portrait : {};
+  const nameplateSrc = source.nameplate && typeof source.nameplate === 'object' ? source.nameplate : {};
+  const nameplate = { ...nameplateSrc };
+  for (const def of INFO_SPECIAL_CATEGORY_RULES) {
+    if (!def || !def.category) continue;
+    const priorityIds = normalizePriorityIdsFromRules(def.rules);
+    const scanned = scanInfoSpecialFilesByRules(def.rules);
+    if (scanned.length > 0) {
+      nameplate[def.category] = scanned;
+      continue;
+    }
+    if (Array.isArray(nameplate[def.category])) {
+      nameplate[def.category] = reorderEntriesByPriorityIds(
+        nameplate[def.category],
+        priorityIds
+      );
+      continue;
+    }
+    if (def.category === INFO_SPECIAL_SYMBOL_CATEGORY) {
+      const fallbackVirtual = buildVirtualIconFilesByRules(def.rules);
+      if (fallbackVirtual.length > 0) {
+        nameplate[def.category] = reorderEntriesByPriorityIds(
+          fallbackVirtual,
+          priorityIds
+        );
+        continue;
+      }
+    }
+    if (!Array.isArray(nameplate[def.category])) {
+      nameplate[def.category] = [];
+    }
+  }
+  return { portrait, nameplate };
+}
 
 function scanFiles() {
   const portrait  = {};
@@ -135,12 +408,17 @@ function scanFiles() {
       if (isNaN(num)) continue;
 
       for (const cat of LAYER_CATEGORIES) {
-        if (num >= cat.min && num <= cat.max) {
+        if (num < cat.min || num > cat.max) continue;
+        if (cat.skipIdMod1000Le != null) {
+          const mod = num % 1000;
+          if (mod <= cat.skipIdMod1000Le) continue;
+        }
+        {
           const entry = {
             id: numStr,
             file,
-            path: path.join(folder, file).replace(/\\/g, '/'),
-            name: idNames[num] || null   // 中文名称（无则为 null）
+            path: `${REL_UI_ICON}/${folder}/${file}`.replace(/\\/g, '/'),
+            name: idNames[num] || null, // 中文名称（无则为 null）
           };
           if (cat.canvas === 'portrait') {
             portrait[cat.name].push(entry);
@@ -160,11 +438,9 @@ function scanFiles() {
   return { portrait, nameplate };
 }
 
-/** 仅保留 CSV 白名单中的图标（与图床/游戏表一致，避免列表里出现无图文件） */
 function filterFileDataByWhitelist(data, set) {
   if (!set || set.size === 0) return data;
-  const pick = arr =>
-    arr.filter(e => set.has(parseInt(e.id, 10)));
+  const pick = arr => arr.filter(e => set.has(parseInt(e.id, 10)));
   const out = { portrait: {}, nameplate: {} };
   Object.keys(data.portrait).forEach(k => {
     out.portrait[k] = pick(data.portrait[k]);
@@ -212,8 +488,8 @@ function loadPinnedFilesApiData() {
   }
 }
 
-/** 默认走 Cloudflare Worker 图床；若要改回由本机 /img 提供图片，设 ICON_COMPOSER_IMG_BASE=/img */
-const DEFAULT_IMG_BASE = 'https://portable-icon.2513985996.workers.dev';
+/** 默认走本机 /img（来自 ICON_ROOT）；可用 ICON_COMPOSER_IMG_BASE 覆盖为自建图床/CDN */
+const DEFAULT_IMG_BASE = '/img';
 
 function resolveImgBase() {
   const v = process.env.ICON_COMPOSER_IMG_BASE;
@@ -252,9 +528,22 @@ function resolvePreviewImgMeta() {
   return { maxEdge, base: `/img-preview/${maxEdge}` };
 }
 
+/** 仅识别相对仓库根的 `ui/icon/…`；返回相对 ICON_ROOT 的文件系统路径，否则 null */
+function relPathInsideIconMaterials(raw) {
+  let s = String(raw || '').trim().replace(/^[/\\]+/, '').replace(/\\/g, '/');
+  if (!s || s.includes('..')) return null;
+  const prefix = `${REL_UI_ICON}/`;
+  if (s.length < prefix.length || s.slice(0, prefix.length).toLowerCase() !== prefix.toLowerCase()) {
+    return null;
+  }
+  const inner = s.slice(prefix.length);
+  if (!inner || inner.includes('..')) return null;
+  return inner.replace(/\//g, path.sep);
+}
+
 function pathUnderIconRoot(relUrlPath) {
-  const rel = String(relUrlPath || '').replace(/^[/\\]+/, '').replace(/\//g, path.sep);
-  if (!rel || rel.includes('..')) return null;
+  const rel = relPathInsideIconMaterials(relUrlPath);
+  if (!rel) return null;
   const full = path.resolve(path.join(ICON_ROOT, rel));
   const root = path.resolve(ICON_ROOT);
   if (full !== root && !full.startsWith(root + path.sep)) return null;
@@ -361,6 +650,10 @@ const MIME = {
   '.webp': 'image/webp',
   '.svg':  'image/svg+xml',
   '.json': 'application/json',
+  '.ttf':  'font/ttf',
+  '.otf':  'font/otf',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
 };
 
 const server = http.createServer((req, res) => {
@@ -410,6 +703,8 @@ const server = http.createServer((req, res) => {
     if (csvWhitelist && csvWhitelist.size > 0) {
       data = filterFileDataByWhitelist(data, csvWhitelist);
     }
+    data = injectInfoIconExtraCategory(data);
+    data = injectInfoSpecialCategories(data);
     const prevM = resolvePreviewImgMeta();
     const payload = {
       portrait: data.portrait,
@@ -641,7 +936,19 @@ const server = http.createServer((req, res) => {
   }
 
   if (pathname.startsWith('/img/')) {
-    const relPath = pathname.slice(5).replace(/\//g, path.sep);
+    let relUrl = pathname.slice('/img/'.length).replace(/\\/g, '/');
+    try {
+      relUrl = decodeURIComponent(relUrl);
+    } catch (_) {
+      /* keep raw */
+    }
+    const relPath = relPathInsideIconMaterials(relUrl);
+    if (!relPath) {
+      metrics.img404 += 1;
+      res.writeHead(404, { 'Cache-Control': 'no-store' });
+      res.end('Not Found');
+      return;
+    }
     const filePath = path.join(ICON_ROOT, relPath);
     if (fs.existsSync(filePath)) {
       metrics.imgHits += 1;
