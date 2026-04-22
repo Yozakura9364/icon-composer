@@ -1,0 +1,255 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="icon-composer-base" content="@@ICON_APP_BASE@@">
+<title>铭牌生成器</title>
+<link rel="stylesheet" href="src/client/styles/main.css?v=20260422n">
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div>正在扫描素材文件…</div>
+  <div class="layer-loading-hint">高清图片初次加载较慢，请耐心哦</div>
+</div>
+
+<div id="layerLoadingOverlay" class="layer-loading-overlay" aria-hidden="true">
+  <div class="layer-loading-box">
+    <div class="spinner"></div>
+    <div>加载中</div>
+    <div class="layer-loading-hint">高清图片初次加载较慢，请耐心哦</div>
+  </div>
+</div>
+
+<div id="customCropModal" class="crop-modal-backdrop" aria-hidden="true" onclick="if(event.target===this)cancelCustomCrop()">
+  <div class="crop-modal-panel" role="dialog" aria-labelledby="customCropTitle" onclick="event.stopPropagation()">
+    <div class="crop-modal-title" id="customCropTitle">裁切为 512×840</div>
+    <p class="crop-modal-sub">拖动图片调整取景；滚轮或下方滑块缩放。裁切框比例与肖像画布一致。</p>
+    <canvas id="customCropCanvas" width="512" height="840"></canvas>
+    <div class="crop-modal-toolbar">
+      <div class="range-wrap" style="width:100%;">
+        <span>缩放</span>
+        <input type="range" id="customCropMulRange" min="1" max="3" step="0.02" value="1">
+        <span class="val" id="customCropMulValue">100%</span>
+      </div>
+    </div>
+    <div class="crop-modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="cancelCustomCrop()">取消</button>
+      <button type="button" class="btn btn-primary" onclick="confirmCustomCrop()">确定</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <h1>铭牌生成器</h1>
+  <div class="subtitle">FF14铭牌DIY</div>
+  <div class="header-actions">
+    <button type="button" class="btn btn-ghost header-icon-btn" id="themeToggleBtn" onclick="toggleTheme()" title="切换浅色/深色" aria-label="切换浅色/深色">
+      <img id="themeToggleIcon" alt="" aria-hidden="true">
+    </button>
+    <button type="button" class="btn btn-ghost header-icon-btn" id="settingsBtn" onclick="openSettings()" title="设置" aria-label="设置">
+      <img id="settingsIcon" alt="" aria-hidden="true">
+    </button>
+    <div class="mobile-action-list" id="settingsActionList" aria-hidden="true" onmouseleave="closeSettingsMenu()">
+      <button class="btn btn-ghost" onclick="void importComposerConfigFromClipboard(); closeSettingsMenu();">从剪贴板导入</button>
+      <button class="btn btn-ghost" onclick="triggerLoadComposerConfigFile(); closeSettingsMenu();">从JSON导入</button>
+    </div>
+    <button type="button" class="btn btn-ghost header-icon-btn" id="mobileActionBtn" onclick="toggleMobileActionMenu()" title="下载与操作" aria-label="下载与操作">
+      <img id="downloadIcon" alt="" aria-hidden="true">
+    </button>
+    <div class="mobile-action-list export-action-menu" id="mobileActionList" aria-hidden="true">
+      <div class="mobile-action-menu-head">
+        <span class="mobile-action-menu-title">导出与配置</span>
+        <button type="button" class="mobile-action-menu-close" onclick="closeMobileActionMenu()" aria-label="关闭导出菜单">×</button>
+      </div>
+      <label class="mobile-action-scale-toggle" for="exportScale2xCheckbox">
+        <input id="exportScale2xCheckbox" type="checkbox">
+        <span>导出 200%</span>
+      </label>
+      <div class="mobile-action-row mobile-action-row-export">
+        <button class="btn btn-ghost" onclick="void exportCanvas(); closeMobileActionMenu();">导出 PNG</button>
+        <button class="btn btn-ghost" onclick="void exportCanvasJpg(); closeMobileActionMenu();">导出 JPG</button>
+        <button class="btn btn-ghost" id="exportLayeredZipBtn" onclick="exportLayeredZip(); closeMobileActionMenu();">导出分层 ZIP</button>
+      </div>
+      <div class="mobile-action-row mobile-action-row-config">
+        <button class="btn btn-ghost" onclick="void exportComposerConfigToClipboard(); closeMobileActionMenu();">导出到剪贴板</button>
+        <button class="btn btn-ghost" onclick="downloadComposerConfigJson(); closeMobileActionMenu();">导出 JSON</button>
+      </div>
+    </div>
+    <input type="file" id="composerConfigFileInput" accept="application/json,.json" style="display:none" aria-hidden="true">
+  </div>
+</header>
+
+<div class="main">
+  <!-- 画布区 -->
+  <div class="canvas-area">
+    <div class="canvas-viewport" id="canvasViewport">
+      <div class="canvas-container" id="canvasContainer">
+        <canvas id="mainCanvas"></canvas>
+        <canvas id="hoverOverlayCanvas" aria-hidden="true"></canvas>
+      </div>
+    </div>
+    <div class="canvas-controls">
+      <div class="zoom-ctrl">
+        <button type="button" onclick="zoom(-1)">−</button>
+        <select id="zoomSelect" onchange="setZoom(this.value)">
+          <option value="0.5">50%</option>
+          <option value="0.75">75%</option>
+          <option value="1" selected>100%</option>
+          <option value="1.25">125%</option>
+          <option value="1.5">150%</option>
+          <option value="2">200%</option>
+          <option value="3">300%</option>
+        </select>
+        <button type="button" onclick="zoom(1)">+</button>
+        <button class="btn btn-ghost" type="button" onclick="clearAll()">清空</button>
+        <button class="btn btn-ghost" id="customClearImageBtn" type="button" onclick="clearCustomPortraitImage()" style="display:none;">清空自定义图片</button>
+      </div>
+    </div>
+    <div id="statusBar">已选 0 层</div>
+  </div>
+
+  <!-- 右侧配置面板 -->
+  <div class="config-panel">
+    <div class="panel-tabs" style="padding:0 10px;">
+      <button class="panel-tab portrait-tab active" id="pTabPortrait" onclick="void switchPanelTab('portrait')">肖像</button>
+      <button class="panel-tab nameplate-tab" id="pTabNameplate" onclick="void switchPanelTab('nameplate')">铭牌</button>
+      <button class="panel-tab info-tab" id="pTabInfo" onclick="void switchPanelTab('info')">信息</button>
+    </div>
+
+    <div class="panel-scroll" id="panelScroll">
+      <!-- 肖像配置 -->
+      <div id="portraitPanel">
+        <div class="group-title portrait"><div class="dot"></div>肖像图层（512×840）</div>
+        <div style="padding:6px 10px; display:flex; gap:4px; align-items:center; overflow:hidden;">
+          <button class="btn btn-ghost" onclick="prevPreset('banner')" title="上一个肖像预设" style="flex-shrink:0;">◀</button>
+          <select id="presetBanner" disabled onchange="void applyPreset('banner', this.value)" style="flex:1; min-width:0; padding:5px; border-radius:4px; border:1px solid #555; background:#2a2a2a; color:#ccc; font-size:13px;">
+            <option value="">— 选择肖像预设 —</option>
+          </select>
+          <button class="btn btn-ghost" onclick="nextPreset('banner')" title="下一个肖像预设" style="flex-shrink:0;">▶</button>
+        </div>
+        <div class="custom-upload-box">
+          <div class="custom-upload-title">自定义肖像（位于背景与装饰框之间）</div>
+          <div class="custom-upload-row" style="align-items: flex-start;">
+            <label class="avatar-pick-wrap" title="选择图片后在 512×840 框内裁切">
+              <div class="avatar-pick-circle" id="customPortraitAvatarCircle">
+                <span id="customPortraitAvatarGlyph">+</span>
+                <img id="customPortraitAvatarThumb" alt="" width="56" height="56" style="display:none;width:100%;height:100%;object-fit:cover;">
+              </div>
+              <input id="customPortraitInput" type="file" accept="image/png,image/jpeg" tabindex="-1" aria-label="选择自定义肖像图片">
+            </label>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:11px;color:var(--text-dim);line-height:1.45;">点击圆形上传，在裁切界面拖动图片、滚轮或滑块缩放，确定后生成 512×840 图层。需调整请重新上传。</div>
+            </div>
+          </div>
+          <div class="range-wrap">
+            <span>图层缩放微调</span>
+            <input id="customPortraitScale" type="range" min="0.2" max="3" step="0.05" value="1" onchange="setCustomPortraitScale(this.value)" oninput="setCustomPortraitScale(this.value)">
+            <span class="val" id="customPortraitScaleValue">100%</span>
+          </div>
+          <div class="custom-upload-name" id="customPortraitName">未上传自定义图片</div>
+        </div>
+        <div id="portraitSections"></div>
+      </div>
+
+      <!-- 铭牌配置 -->
+      <div id="nameplatePanel" style="display:none;">
+        <div class="side-toggle">
+          <div class="st-label">肖像位置</div>
+          <div class="st-options">
+            <div class="st-btn" id="sideLeft" onclick="setPortraitSide('left')">左侧</div>
+            <div class="st-btn active" id="sideRight" onclick="setPortraitSide('right')">右侧</div>
+          </div>
+        </div>
+        <div class="group-title nameplate"><div class="dot"></div>铭牌图层（2560×1440）</div>
+        <div style="padding:6px 10px; display:flex; gap:4px; align-items:center; overflow:hidden;">
+          <button class="btn btn-ghost" onclick="prevPreset('charcard')" title="上一个铭牌预设" style="flex-shrink:0;">◀</button>
+          <select id="presetChar" disabled onchange="void applyPreset('charcard', this.value)" style="flex:1; min-width:0; padding:5px; border-radius:4px; border:1px solid #555; background:#2a2a2a; color:#ccc; font-size:13px;">
+            <option value="">— 选择铭牌预设 —</option>
+          </select>
+          <button class="btn btn-ghost" onclick="nextPreset('charcard')" title="下一个铭牌预设" style="flex-shrink:0;">▶</button>
+        </div>
+        <div id="nameplateSections"></div>
+      </div>
+
+      <!-- 信息 -->
+      <div id="infoPanel" style="display:none;">
+        <div class="group-title info"><div class="dot"></div>信息图层</div>
+        <div class="custom-upload-box text-layer-box">
+          <div class="custom-upload-title">信息预设</div>
+          <div id="infoPresetRow" class="info-preset-row"></div>
+          <div class="text-layer-local-font-row">
+            <button
+              id="textLayerLoadLocalFontsBtn"
+              type="button"
+              class="btn btn-ghost text-layer-local-font-btn"
+              onclick="loadLocalTextLayerFonts()"
+              title="加载本机字体"
+              aria-label="加载本机字体"
+            ><img id="textLayerLoadLocalFontsIcon" alt="" aria-hidden="true"></button>
+            <button
+              id="resetInfoTextContentBtn"
+              type="button"
+              class="btn btn-ghost text-layer-local-font-btn"
+              onclick="resetAllInfoTextLayerContents()"
+              title="重置文案"
+              aria-label="重置文案"
+            ><img id="resetInfoTextContentIcon" alt="" aria-hidden="true"></button>
+            <button
+              id="toggleAllInfoLayerVisibilityBtn"
+              type="button"
+              class="btn btn-ghost text-layer-local-font-btn"
+              onclick="toggleAllInfoLayersVisibility()"
+              title="显示所有图层"
+              aria-label="显示所有图层"
+            ><img id="toggleAllInfoLayerVisibilityIcon" alt="" aria-hidden="true"></button>
+          </div>
+          <span id="textLayerLocalFontsStatus" class="text-layer-local-font-status"></span>
+          <div id="infoLayerList" class="info-layer-list"></div>
+          <p class="text-layer-help">提示：信息页图层数量由代码固定；左/右续接按固定槽位顺序分配；图标层素材源与前两页一致。</p>
+        </div>
+      </div>
+    </div>
+    <footer class="panel-footer-legal">
+      <p>
+        本工具源代码以 <strong>MIT License</strong> 开源，许可全文见
+        <a href="https://github.com/Yozakura9364/icon-composer/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">LICENSE</a>
+        与 <a href="https://github.com/Yozakura9364/icon-composer" target="_blank" rel="noopener noreferrer">GitHub 仓库</a>。
+      </p>
+      <p>
+        FINAL FANTASY XIV © SQUARE ENIX CO., LTD. All Rights Reserved.<br>
+        《最终幻想14》相关素材、商标及版权归 Square Enix 及其关联公司所有。本工具为爱好者制作的非官方作品，未经 Square Enix 认可或赞助，亦与该公司无任何关联。
+      </p>
+    </footer>
+  </div>
+</div>
+
+<script src="src/client/scripts/00-paths-and-constants.js?v=20260422m"></script>
+<script src="src/client/scripts/state/store.js"></script>
+<script src="src/client/scripts/state/persistence.js"></script>
+<script src="src/client/scripts/features/theme/theme.js"></script>
+<script src="src/client/scripts/features/info-layers/model.js?v=20260422d"></script>
+<script src="src/client/scripts/features/presets/presets.js?v=20260422l"></script>
+<script src="src/client/scripts/features/info-layers/canvas-overlay.js?v=20260422n"></script>
+<script src="src/client/scripts/features/info-layers/panel-render.js?v=20260422m"></script>
+<script src="src/client/scripts/features/info-layers/panel-actions.js?v=20260422j"></script>
+<script src="src/client/scripts/features/info-layers/render-engine.js?v=20260422k"></script>
+<script src="src/client/scripts/features/custom-portrait/custom-portrait.js"></script>
+<script src="src/client/scripts/features/presets/preset-apply.js"></script>
+<script src="src/client/scripts/render/section-panel.js"></script>
+<script src="src/client/scripts/render/canvas-core.js"></script>
+<script src="src/client/scripts/render/portrait-renderer.js"></script>
+<script src="src/client/scripts/render/nameplate-renderer.js"></script>
+<script src="src/client/scripts/render/image-loader.js"></script>
+<script src="src/client/scripts/render/viewport-transform.js"></script>
+<script src="src/client/scripts/export/shared.js?v=20260422i"></script>
+<script src="src/client/scripts/export/png-export.js?v=20260422i"></script>
+<script src="src/client/scripts/export/psd-export.js"></script>
+<script src="src/client/scripts/export/zip-export.js?v=20260422i"></script>
+<script src="src/client/scripts/40-bootstrap.js?v=20260422i"></script>
+</body>
+</html>
+
+
