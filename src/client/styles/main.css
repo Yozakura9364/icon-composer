@@ -1008,10 +1008,18 @@ canvas { image-rendering: auto; }
 }
 .about-modal-close:hover { background: var(--card2); }
 .about-modal-content {
+  display: grid;
+  gap: 10px;
   font-size: 12px;
   line-height: 1.55;
   color: var(--text-dim);
   white-space: normal;
+}
+.about-modal-block {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 9px 10px;
 }
 .about-modal-content p {
   margin: 0 0 8px;

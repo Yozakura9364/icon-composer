@@ -86,6 +86,12 @@ const TEXT_LAYER_PRESET_FONT_FAMILIES = [
   'AXIS',
   'Adobe Heiti Std',
 ];
+const TEXT_LAYER_FONT_DISPLAY_LABEL_BY_FAMILY = {
+  'augmented neo-eorzean': '改良型新式艾欧泽亚文字',
+  'augmented far eastern script': '改良型东方文字',
+  'augmented norvrandt': '改良型诺弗兰特文字',
+  'augmented postulated proto-alphabet': '改良型古代文字',
+};
 const TEXT_LAYER_FONT_FAMILY_MAX_LENGTH = 80;
 const TEXT_LAYER_LOCAL_FONT_LIMIT = 400;
 const TEXT_LAYER_ALIGN_OPTIONS = ['left', 'center', 'right'];

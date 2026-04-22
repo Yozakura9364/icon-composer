@@ -1191,11 +1191,20 @@ function buildTextLayerFontOptionsHtml(layer) {
   const allKnown = [...presetFonts, ...localFonts];
   const knownSet = new Set(allKnown.map(name => name.toLowerCase()));
   const currentExtra = knownSet.has(preferred.toLowerCase()) ? [] : [preferred];
+  const getDisplayLabel = name => {
+    const key = String(name || '').trim().toLowerCase();
+    const mapped =
+      TEXT_LAYER_FONT_DISPLAY_LABEL_BY_FAMILY &&
+      Object.prototype.hasOwnProperty.call(TEXT_LAYER_FONT_DISPLAY_LABEL_BY_FAMILY, key)
+        ? TEXT_LAYER_FONT_DISPLAY_LABEL_BY_FAMILY[key]
+        : '';
+    return mapped || name;
+  };
   const renderOptions = names =>
     names
       .map(name => {
         const selected = name.toLowerCase() === preferred.toLowerCase() ? ' selected' : '';
-        return `<option value="${escapeHtml(name)}"${selected}>${escapeHtml(name)}</option>`;
+        return `<option value="${escapeHtml(name)}"${selected}>${escapeHtml(getDisplayLabel(name))}</option>`;
       })
       .join('');
 

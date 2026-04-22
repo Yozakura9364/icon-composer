@@ -10,12 +10,15 @@ module.exports = {
       cwd: '/www/wwwroot/icon-composer-main',
       script: 'server.js',
       interpreter: 'node',
+      exec_mode: 'fork',
       instances: 1,
       autorestart: true,
       max_memory_restart: '800M',
       env: {
         NODE_ENV: 'production',
         ICON_COMPOSER_PORT: '3456',
+        ICON_COMPOSER_BASE: '/portable',
+        ICON_COMPOSER_IMG_BASE: 'https://img.nightingalesilence.com',
         // 挂在子路径时与 Nginx location 一致，例如：https://www.example.com/portable/
         // ICON_COMPOSER_BASE: '/portable',
         // 若宝塔不便写 env：在项目根建 app-base.txt，首行写 /portable（与上面二选一即可）
