@@ -7,8 +7,8 @@ function isAbsoluteImgUrl(raw) {
   return /^(https?:)?\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw);
 }
 
-function isStaticAssetPath(p) {
-  return /^ui\//i.test(p);
+function isUiAssetPath(p) {
+  return /^ui\//i.test(String(p || ''));
 }
 
 function isUiIconMaterialPath(p) {
@@ -25,10 +25,13 @@ function iconImgSrcHd(relPath) {
   const raw = String(relPath || '').trim();
   if (!raw) return '';
   if (isAbsoluteImgUrl(raw)) return raw;
-  if (raw.startsWith('/')) return appPath(raw);
-  const p = raw.replace(/^\.\//, '').replace(/^\//, '');
-  if (isUiIconMaterialPath(p)) return joinAssetBase(ICON_IMG_BASE || CDN, p);
-  if (isStaticAssetPath(p)) return appPath('/' + p);
+  if (raw.startsWith('/')) {
+    const p = raw.replace(/^\/+/, '');
+    if (isUiAssetPath(p)) return joinAssetBase(ICON_IMG_BASE || CDN, p);
+    return appPath('/' + p);
+  }
+  const p = raw.replace(/^\.\//, '').replace(/^\/+/, '');
+  if (isUiAssetPath(p)) return joinAssetBase(ICON_IMG_BASE || CDN, p);
   return joinAssetBase(ICON_IMG_BASE || CDN, p);
 }
 
@@ -36,12 +39,19 @@ function iconImgSrcPreview(relPath) {
   const raw = String(relPath || '').trim();
   if (!raw) return '';
   if (isAbsoluteImgUrl(raw)) return raw;
-  if (raw.startsWith('/')) return appPath(raw);
-  const p = raw.replace(/^\.\//, '').replace(/^\//, '');
+  if (raw.startsWith('/')) {
+    const p = raw.replace(/^\/+/, '');
+    if (isUiIconMaterialPath(p)) {
+      return ICON_PREVIEW_BASE ? joinAssetBase(ICON_PREVIEW_BASE, p) : iconImgSrcHd(p);
+    }
+    if (isUiAssetPath(p)) return iconImgSrcHd(p);
+    return appPath('/' + p);
+  }
+  const p = raw.replace(/^\.\//, '').replace(/^\/+/, '');
   if (isUiIconMaterialPath(p)) {
     return ICON_PREVIEW_BASE ? joinAssetBase(ICON_PREVIEW_BASE, p) : iconImgSrcHd(p);
   }
-  if (isStaticAssetPath(p)) return iconImgSrcHd(p);
+  if (isUiAssetPath(p)) return iconImgSrcHd(p);
   return ICON_PREVIEW_BASE ? joinAssetBase(ICON_PREVIEW_BASE, p) : iconImgSrcHd(p);
 }
 
