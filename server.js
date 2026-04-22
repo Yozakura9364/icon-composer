@@ -123,6 +123,15 @@ const INFO_ICON_EXTRA_SOURCES = [
   },
 ];
 const INFO_ICON_EXTRA_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg']);
+const INFO_ICON_ACTIVITY_CATEGORY = '活动图标';
+const INFO_ICON_ACTIVITY_FOLDER = '061000';
+const CHARA_CARD_PLAY_STYLE_CSV_PATH = path.join(
+  __dirname,
+  'vendor',
+  'ffxiv-datamining-mixed',
+  'chs',
+  'CharaCardPlayStyle.csv'
+);
 const INFO_SPECIAL_BG_CATEGORY = '国际服寓意背景';
 const INFO_SPECIAL_MASK_CATEGORY = '国际服上色蒙版';
 const INFO_SPECIAL_SYMBOL_CATEGORY = '国际服寓意物';
@@ -238,6 +247,94 @@ function parseIconNumericIdFromFile(file) {
   return { numStr, num };
 }
 
+function splitCsvLine(line) {
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (!inQuotes && ch === ',') {
+      out.push(cur.trim());
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function readCharaCardPlayStyleRows() {
+  if (!fs.existsSync(CHARA_CARD_PLAY_STYLE_CSV_PATH)) return [];
+  let raw;
+  try {
+    raw = fs.readFileSync(CHARA_CARD_PLAY_STYLE_CSV_PATH, 'utf8');
+  } catch (_) {
+    return [];
+  }
+  const lines = String(raw || '')
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .map(line => String(line || '').trim())
+    .filter(Boolean);
+  if (!lines.length) return [];
+  let schemaIdx = lines.findIndex(line => line.startsWith('int32,'));
+  if (schemaIdx < 0) schemaIdx = 2;
+  const out = [];
+  for (let i = schemaIdx + 1; i < lines.length; i += 1) {
+    const cols = splitCsvLine(lines[i]);
+    if (cols.length < 4) continue;
+    const key = Number.parseInt(cols[0], 10);
+    const image = Number.parseInt(cols[1], 10);
+    if (!Number.isFinite(key) || key < 0) continue;
+    if (!Number.isFinite(image) || image <= 0) continue;
+    const name = String(cols[3] || '').trim();
+    out.push({ key, image, name });
+  }
+  return out;
+}
+
+function buildInfoActivityIconFilesFromPlayStyleCsv() {
+  const rows = readCharaCardPlayStyleRows();
+  if (!rows.length) return [];
+  const folderPath = path.join(ICON_ROOT, INFO_ICON_ACTIVITY_FOLDER);
+  let existingFiles = [];
+  try {
+    existingFiles = fs.readdirSync(folderPath);
+  } catch (_) {
+    return [];
+  }
+  const fileSet = new Set(
+    existingFiles
+      .filter(file => /\.png$/i.test(file))
+      .map(file => String(file || '').trim().toLowerCase())
+  );
+  const out = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const num = Math.trunc(Number(row.image));
+    if (!Number.isFinite(num) || num <= 0) continue;
+    const id = String(num).padStart(6, '0');
+    if (!/^\d{6}$/.test(id)) continue;
+    const file = `${id}_hr1.png`;
+    if (!fileSet.has(file.toLowerCase())) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const displayName = String(row.name || '').trim() || idNames[num] || id;
+    out.push({
+      id,
+      file,
+      path: `${REL_UI_ICON}/${INFO_ICON_ACTIVITY_FOLDER}/${file}`.replace(/\\/g, '/'),
+      name: displayName,
+    });
+  }
+  return out;
+}
+
 function injectInfoIconExtraCategory(data) {
   const source = data && typeof data === 'object' ? data : { portrait: {}, nameplate: {} };
   const portrait = source.portrait && typeof source.portrait === 'object' ? source.portrait : {};
@@ -254,6 +351,7 @@ function injectInfoIconExtraCategory(data) {
     if (!extra.relDir) continue;
     nameplate[extra.category] = scanInfoIconExtraFiles(extra.relDir);
   }
+  nameplate[INFO_ICON_ACTIVITY_CATEGORY] = buildInfoActivityIconFilesFromPlayStyleCsv();
   return { portrait, nameplate };
 }
 

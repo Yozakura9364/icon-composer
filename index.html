@@ -260,6 +260,16 @@ header .subtitle { font-size: 11px; color: var(--text-dim); }
 .canvas-viewport.dragging { cursor: grabbing; }
 .canvas-container { position: relative; flex-shrink: 0; }
 .canvas-container canvas { display: block; image-rendering: auto; }
+#mainCanvas {
+  position: relative;
+  z-index: 1;
+}
+#hoverOverlayCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
 canvas { image-rendering: auto; }
 
 /* === 画布控制条 === */
@@ -1083,6 +1093,7 @@ canvas { image-rendering: auto; }
     <div class="canvas-viewport" id="canvasViewport">
       <div class="canvas-container" id="canvasContainer">
         <canvas id="mainCanvas"></canvas>
+        <canvas id="hoverOverlayCanvas" aria-hidden="true"></canvas>
       </div>
     </div>
     <div class="canvas-controls">
@@ -1326,6 +1337,7 @@ const INFO_BAR48_GAP_MAX = 128;
 const INFO_BAR48_CELL_SIZE_MIN = 1;
 const INFO_BAR48_CELL_SIZE_MAX = 512;
 const INFO_TEXT_APPEND_GAP = 16;
+const INFO_TEXT_AUTO_WRAP_MAX_WIDTH = 810;
 /** 服务器名行内 worldtransrate_4 图标：右下角锚点，底边 Y 固定；X 随文字排版变化 */
 const INFO_TEXT_WORLD_TRANSRATE_INLINE_BOTTOM_Y = 351;
 const SMALL_CAPS_GLYPH_SCALE = 0.82;
@@ -1340,17 +1352,28 @@ const TEXT_LAYER_STROKE_WIDTH_MAX = 32;
 const INFO_ICON_LIMITED_CATEGORY = '职业图标';
 const INFO_ICON_DECOR_CATEGORY = '装饰图标';
 const INFO_ICON_RANK_CATEGORY = '军衔图标';
+const INFO_ICON_ACTIVITY_CATEGORY = '活动图标';
 const INFO_ICON_LEGACY_CATEGORY = '职业图标图层组';
-const INFO_ICON_EXTRA_CATS = [INFO_ICON_LIMITED_CATEGORY, INFO_ICON_DECOR_CATEGORY, INFO_ICON_RANK_CATEGORY];
+const INFO_ICON_EXTRA_CATS = [
+  INFO_ICON_LIMITED_CATEGORY,
+  INFO_ICON_DECOR_CATEGORY,
+  INFO_ICON_RANK_CATEGORY,
+  INFO_ICON_ACTIVITY_CATEGORY,
+];
+const INFO_ACTIVITY_ICON_MAX_COUNT = 6;
+const INFO_ACTIVITY_ICON_SIZE_PX = 64;
+const INFO_ACTIVITY_ICON_GAP_PX = 16;
+const INFO_ICON_ACTIVITY_FOLDER = '061000';
+const CHARA_CARD_PLAY_STYLE_MIXED_CSV_PATH = '/vendor/ffxiv-datamining-mixed/chs/CharaCardPlayStyle.csv';
 const INFO_SPECIAL_BG_CATEGORY = '国际服寓意背景';
 const INFO_SPECIAL_MASK_CATEGORY = '国际服上色蒙版';
 const INFO_SPECIAL_SYMBOL_CATEGORY = '国际服寓意物';
+const INFO_SPECIAL_DEFAULT_SYMBOL_ITEM_TOKEN = '091000_hr1.png';
 const INFO_SPECIAL_SCALE_MIN = INFO_ICON_SCALE_MIN;
 const INFO_SPECIAL_SCALE_MAX = INFO_ICON_SCALE_MAX;
 const INFO_SPECIAL_BG_WHITE_VALUE = 255;
 const INFO_ICON_FORCED_CATEGORY_BY_LAYER_ID = {
   'icon-1': INFO_ICON_LIMITED_CATEGORY,
-  'icon-2': INFO_ICON_DECOR_CATEGORY,
   'icon-3': INFO_ICON_DECOR_CATEGORY,
   'icon-4': INFO_ICON_RANK_CATEGORY,
 };
@@ -1620,10 +1643,10 @@ const INFO_PRESET_DEFINITIONS = [
         id: 'special-1',
         type: 'special',
         enabled: true,
-        name: '寓意图层',
+        name: 'bd队徽',
         bgItemId: '',
         maskItemId: '',
-        symbolItemId: '091003',
+        symbolItemId: '091000_hr1.png',
         maskDarkColor: '#5f3c22',
         maskLightColor: '#f6d9a7',
         x: 597,
@@ -1717,6 +1740,121 @@ const INFO_PRESET_DEFINITIONS = [
         baselineShift: 0,
         adaptiveColorSource: INFO_TEXT_ADAPTIVE_COLOR_SOURCE_BASE,
         color: '#ffffff',
+        opacity: 1,
+      },
+      {
+        id: 'text-9',
+        type: 'text',
+        enabled: true,
+        name: '个性签名',
+        text: '降り注ぐ星は悲しみ 海を濁らせるのは嘆き',
+        fontFamily: 'AXIS',
+        fontVariant: 'regular',
+        bold: false,
+        italic: false,
+        underline: false,
+        smallCaps: false,
+        freeLigatures: false,
+        align: 'left',
+        x: 594,
+        y: 976,
+        positionBySide: {
+          right: { x: 594, y: 976 },
+          left: { x: 1174, y: 976 },
+        },
+        fontSize: 24,
+        lineHeightMode: 'auto',
+        lineHeight: 1.2,
+        tracking: 0,
+        kerningVA: -75,
+        scaleXPercent: 95,
+        scaleYPercent: 97,
+        baselineShift: 0,
+        adaptiveColorSource: INFO_TEXT_ADAPTIVE_COLOR_SOURCE_BASE,
+        color: '#ffffff',
+        opacity: 1,
+      },
+      {
+        id: 'text-10',
+        type: 'text',
+        enabled: true,
+        name: '作息文字1',
+        text: '0:00                                       12:00',
+        fontFamily: 'Trump Gothic Pro',
+        fontVariant: 'regular',
+        bold: false,
+        italic: false,
+        underline: false,
+        smallCaps: false,
+        freeLigatures: false,
+        align: 'left',
+        x: 702,
+        y: 723,
+        positionBySide: {
+          right: { x: 702, y: 723 },
+          left: { x: 1282, y: 723 },
+        },
+        fontSize: 48,
+        lineHeightMode: 'auto',
+        lineHeight: 1.2,
+        tracking: 0,
+        kerningVA: 3,
+        scaleXPercent: 110,
+        scaleYPercent: 94,
+        baselineShift: 0,
+        adaptiveColorSource: INFO_TEXT_ADAPTIVE_COLOR_SOURCE_BASE,
+        color: '#ffffff',
+        opacity: 1,
+      },
+      {
+        id: 'text-11',
+        type: 'text',
+        enabled: true,
+        name: '作息文字2',
+        text: '平日\n休日',
+        fontFamily: 'AXIS',
+        fontVariant: 'medium',
+        bold: false,
+        italic: false,
+        underline: false,
+        smallCaps: false,
+        freeLigatures: false,
+        align: 'left',
+        x: 611,
+        y: 780,
+        positionBySide: {
+          right: { x: 611, y: 780 },
+          left: { x: 1191, y: 780 },
+        },
+        fontSize: 24,
+        lineHeightMode: 'manual',
+        lineHeight: 2,
+        tracking: 0,
+        kerningVA: -75,
+        scaleXPercent: 100,
+        scaleYPercent: 97,
+        baselineShift: 0,
+        adaptiveColorSource: INFO_TEXT_ADAPTIVE_COLOR_SOURCE_BASE,
+        color: '#ffffff',
+        opacity: 1,
+      },
+      {
+        id: 'icon-2',
+        type: 'icon',
+        enabled: true,
+        name: '活动图标',
+        sourceCat: INFO_ICON_ACTIVITY_CATEGORY,
+        itemId: '',
+        itemIds: [],
+        x: 700,
+        y: 880,
+        positionBySide: {
+          right: { x: 700, y: 880 },
+          left: { x: 1280, y: 880 },
+        },
+        sizeMode: 'fixed',
+        targetSize: INFO_ACTIVITY_ICON_SIZE_PX,
+        scale: 1,
         opacity: 1,
       },
       {
@@ -2048,12 +2186,15 @@ const INFO_LAYER_SLOT_DEFINITIONS = [
   { id: 'text-1', type: 'text', name: '文字图层 1' },
   { id: 'text-2', type: 'text', name: '文字图层 2' },
   { id: 'icon-1', type: 'icon', name: '图标图层 1' },
-  { id: 'special-1', type: 'special', name: '寓意图层 1' },
+  { id: 'special-1', type: 'special', name: 'bd队徽' },
   { id: 'icon-4', type: 'icon', name: '图标图层 4', enabled: false },
   { id: 'text-8', type: 'text', name: '文字图层 8', enabled: false },
   { id: 'text-7', type: 'text', name: '文字图层 7', enabled: false },
+  { id: 'text-9', type: 'text', name: '文字图层 9', enabled: false },
+  { id: 'text-10', type: 'text', name: '作息文字1', enabled: false },
+  { id: 'text-11', type: 'text', name: '作息文字2', enabled: false },
   { id: 'text-3', type: 'text', name: '文字图层 3' },
-  { id: 'icon-2', type: 'icon', name: '图标图层 2' },
+  { id: 'icon-2', type: 'icon', name: '活动图标' },
   { id: 'text-4', type: 'text', name: '文字图层 4' },
   { id: 'text-5', type: 'text', name: '文字图层 5' },
   { id: 'text-6', type: 'text', name: '文字图层 6' },
@@ -2096,6 +2237,8 @@ let nameplateBaseFontColorLoadPromise = null;
 let nameplateHeaderFontColorByTopImageId = null;
 let nameplateHeaderFontColorLoadPromise = null;
 let infoPanelNumberAutoSelectBound = false;
+let infoLayerHitRegions = [];
+let hoveredInfoLayerIndex = -1;
 
 // ============================================================
 // 初始化
@@ -2133,6 +2276,7 @@ async function init() {
     ) {
       fileData.nameplate[INFO_ICON_LIMITED_CATEGORY] = fileData.nameplate[INFO_ICON_LEGACY_CATEGORY];
     }
+    await ensureInfoActivityIconCategoryLoaded();
     const rawPresets = await presetsResp.json();
     presets = {
       banner: Array.isArray(rawPresets.banner) ? rawPresets.banner : [],
@@ -2211,7 +2355,7 @@ const THEME_KEY = 'iconComposerTheme';
 const COMPOSER_CONFIG_STORAGE_KEY = 'iconComposer.ui.config.v1';
 const COMPOSER_CONFIG_FILE_VERSION = 1;
 const COMPOSER_CONFIG_CATS = [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'];
-const INFO_PRESET_PHANTOM_TIDE_MIGRATION_KEY = 'iconComposer.infoPreset.phantomTideDefaults.v3';
+const INFO_PRESET_PHANTOM_TIDE_MIGRATION_KEY = 'iconComposer.infoPreset.phantomTideDefaults.v4';
 const INFO_PRESET_FIRST_VISIT_HIDDEN_KEY = 'iconComposer.infoPreset.firstVisitHiddenDone.v1';
 
 let _persistComposerTimer = null;
@@ -2536,7 +2680,7 @@ async function applyComposerConfigFromObject(obj, options = {}) {
   } else if (!preserveInfoLayersWhenMissing) {
     infoLayers = [];
   }
-  infoPresetActiveName = targetInfoPresetName;
+  infoPresetActiveName = resolveEffectiveInfoPresetName(targetInfoPresetName);
   if (infoPresetActiveName) {
     infoLayers = getInfoPresetLayerState(infoPresetActiveName, portraitSide);
   }
@@ -2545,7 +2689,10 @@ async function applyComposerConfigFromObject(obj, options = {}) {
     infoPresetActiveName || sanitizePresetName,
     portraitSide
   );
-  if (infoPresetActiveName) saveInfoPresetLayerState(infoPresetActiveName, infoLayers);
+  if (infoPresetActiveName) {
+    infoLayers = maskInfoLayersToPreset(infoPresetActiveName, infoLayers);
+    saveInfoPresetLayerState(infoPresetActiveName, infoLayers);
+  }
   setupTextLayerControls();
 
   if (obj.activePanel === 'nameplate' || obj.activePanel === 'portrait' || obj.activePanel === 'info') {
@@ -2584,7 +2731,10 @@ function migratePhantomTideInfoPresetDefaultsOnce() {
       localStorage.setItem(INFO_PRESET_PHANTOM_TIDE_MIGRATION_KEY, '1');
       return;
     }
-    const rebuilt = buildInfoLayersFromPresetDefinition(preset, portraitSide);
+    const rebuilt = maskInfoLayersToPreset(
+      INFO_PRESET_DEFAULT_NAME,
+      buildInfoLayersFromPresetDefinition(preset, portraitSide)
+    );
     saveInfoPresetLayerState(INFO_PRESET_DEFAULT_NAME, rebuilt);
     if (normalizeInfoPresetName(infoPresetActiveName) === INFO_PRESET_DEFAULT_NAME) {
       infoLayers = cloneInfoLayerStateList(rebuilt);
@@ -2842,6 +2992,94 @@ function parseImageIdFromLayerToken(raw) {
   if (!tail) return null;
   const n = Number(tail[1]);
   return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function splitCsvLineWithQuotes(line) {
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+  const text = String(line || '');
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (!inQuotes && ch === ',') {
+      out.push(cur.trim());
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function parseInfoActivityRowsFromCsvText(csvText) {
+  const lines = String(csvText || '')
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .map(line => String(line || '').trim())
+    .filter(Boolean);
+  if (!lines.length) return [];
+  let schemaIdx = lines.findIndex(line => line.startsWith('int32,'));
+  if (schemaIdx < 0) schemaIdx = 2;
+  const out = [];
+  for (let i = schemaIdx + 1; i < lines.length; i += 1) {
+    const cols = splitCsvLineWithQuotes(lines[i]);
+    if (cols.length < 4) continue;
+    const key = Number.parseInt(cols[0], 10);
+    const image = Number.parseInt(cols[1], 10);
+    if (!Number.isFinite(key) || key < 0) continue;
+    if (!Number.isFinite(image) || image <= 0) continue;
+    const name = String(cols[3] || '').trim();
+    out.push({ key, image, name });
+  }
+  return out;
+}
+
+function buildInfoActivityFilesFromCsvRows(rows) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  const out = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const num = Math.trunc(Number(row && row.image));
+    if (!Number.isFinite(num) || num <= 0) continue;
+    const id = String(num).padStart(6, '0');
+    if (!/^\d{6}$/.test(id)) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const file = `${id}_hr1.png`;
+    out.push({
+      id,
+      file,
+      path: `ui/icon/${INFO_ICON_ACTIVITY_FOLDER}/${file}`,
+      name: String(row && row.name ? row.name : '').trim() || id,
+    });
+  }
+  return out;
+}
+
+async function ensureInfoActivityIconCategoryLoaded() {
+  const nameplate = fileData && fileData.nameplate && typeof fileData.nameplate === 'object'
+    ? fileData.nameplate
+    : null;
+  if (!nameplate) return;
+  const existing = nameplate[INFO_ICON_ACTIVITY_CATEGORY];
+  if (Array.isArray(existing) && existing.length > 0) return;
+  try {
+    const resp = await fetch(appPath(CHARA_CARD_PLAY_STYLE_MIXED_CSV_PATH + `?_=${Date.now()}`));
+    if (!resp.ok) return;
+    const text = await resp.text();
+    const rows = parseInfoActivityRowsFromCsvText(text);
+    const built = buildInfoActivityFilesFromCsvRows(rows);
+    if (built.length > 0) {
+      nameplate[INFO_ICON_ACTIVITY_CATEGORY] = built;
+    }
+  } catch (_) {
+    // keep silent: old server may not expose this csv path
+  }
 }
 
 function parseImageFontColorMap(csvText, imageColIndex, fontColorColIndex) {
@@ -3107,6 +3345,16 @@ function sanitizeInfoLayerName(raw, fallback) {
   return v || fallback;
 }
 
+function normalizeInfoLayerDisplayName(layerId, rawName, fallbackName) {
+  const fallback = sanitizeInfoLayerName(fallbackName, '图层');
+  const id = String(layerId == null ? '' : layerId).trim();
+  const source = sanitizeInfoLayerName(rawName, fallback);
+  if (id !== 'special-1') return source;
+  const legacy = sanitizeInfoLayerName(rawName, '');
+  if (legacy === '寓意图层' || legacy === '寓意图层 1') return 'bd队徽';
+  return source;
+}
+
 function allocateInfoLayerId(type = 'text') {
   const prefixByType = {
     text: 'text',
@@ -3164,14 +3412,67 @@ function resolveInfoIconCategoryForLayer(layerOrId, rawCategory) {
   return normalizeInfoIconCategory(rawCategory);
 }
 
-function resolveInfoIconLayerItem(layer) {
-  if (!layer || layer.type !== 'icon') return null;
+function normalizeInfoIconItemIds(raw, limit = INFO_ACTIVITY_ICON_MAX_COUNT) {
+  const maxCount = Math.max(0, Math.round(Number(limit) || 0));
+  const pool = Array.isArray(raw)
+    ? raw
+    : raw == null || raw === ''
+      ? []
+      : [raw];
+  const out = [];
+  const seen = new Set();
+  for (const entry of pool) {
+    if (out.length >= maxCount) break;
+    const id = String(entry == null ? '' : entry).trim().slice(0, 120);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+function isInfoActivityIconLayer(layer) {
+  if (!layer || layer.type !== 'icon') return false;
   const cat = resolveInfoIconCategoryForLayer(layer, layer.sourceCat);
-  if (!cat) return null;
+  return cat === INFO_ICON_ACTIVITY_CATEGORY;
+}
+
+function resolveInfoIconLayerItems(layer) {
+  if (!layer || layer.type !== 'icon') return [];
+  const cat = resolveInfoIconCategoryForLayer(layer, layer.sourceCat);
+  if (!cat) return [];
   const files = layerListFor(cat);
+  if (!Array.isArray(files) || files.length === 0) return [];
+  const byId = new Map();
+  for (const item of files) {
+    if (!item || item.id == null) continue;
+    const id = String(item.id);
+    if (!byId.has(id)) byId.set(id, item);
+  }
+  if (isInfoActivityIconLayer(layer)) {
+    const ids = normalizeInfoIconItemIds(
+      Array.isArray(layer.itemIds) && layer.itemIds.length > 0
+        ? layer.itemIds
+        : layer.itemId
+          ? [layer.itemId]
+          : []
+    );
+    const out = [];
+    for (const id of ids) {
+      const hit = byId.get(String(id));
+      if (hit) out.push(hit);
+    }
+    return out;
+  }
   const id = String(layer.itemId == null ? '' : layer.itemId);
-  if (!id) return null;
-  return files.find(item => String(item.id) === id) || null;
+  if (!id) return [];
+  const hit = byId.get(id);
+  return hit ? [hit] : [];
+}
+
+function resolveInfoIconLayerItem(layer) {
+  const items = resolveInfoIconLayerItems(layer);
+  return items.length > 0 ? items[0] : null;
 }
 
 function normalizeInfoSpecialItemId(raw) {
@@ -3233,8 +3534,21 @@ function resolveInfoSpecialLayerItem(layer, kind = 'symbol') {
 
 function resolveDefaultInfoSpecialSymbolItemId(fallback = '') {
   const files = listInfoSpecialCategoryItems(INFO_SPECIAL_SYMBOL_CATEGORY);
-  if (files.length > 0) return normalizeInfoSpecialLegacyItemId(files[0].id);
-  return normalizeInfoSpecialLegacyItemId(fallback);
+  const preferredId = normalizeInfoSpecialLegacyItemId(INFO_SPECIAL_DEFAULT_SYMBOL_ITEM_TOKEN);
+  if (preferredId) {
+    const preferredItem = files.find(item => {
+      if (!item) return false;
+      const byId = normalizeInfoSpecialLegacyItemId(item.id);
+      const byFile = normalizeInfoSpecialLegacyItemId(item.file);
+      return byId === preferredId || byFile === preferredId;
+    });
+    if (preferredItem) return preferredId;
+  }
+  if (files.length > 0) {
+    const first = files[0];
+    return normalizeInfoSpecialLegacyItemId(first.id || first.file);
+  }
+  return normalizeInfoSpecialLegacyItemId(fallback || INFO_SPECIAL_DEFAULT_SYMBOL_ITEM_TOKEN);
 }
 
 function hexColorToRgbObject(hexColor, fallback = '#ffffff') {
@@ -3342,7 +3656,7 @@ function createDefaultInfoSpecialLayer(options = {}) {
     {
       id: src.id,
       type: 'special',
-      name: sanitizeInfoLayerName(src.name, '寓意图层'),
+      name: normalizeInfoLayerDisplayName(src.id, src.name, 'bd队徽'),
       enabled: src.enabled == null ? false : src.enabled === true,
       bgItemId: src.bgItemId == null ? '' : src.bgItemId,
       maskItemId: src.maskItemId == null ? '' : src.maskItemId,
@@ -3425,7 +3739,7 @@ function createFixedInfoLayerTemplate() {
       layers.push(
         createDefaultInfoSpecialLayer({
           id: slot.id,
-          name: sanitizeInfoLayerName(slot.name, '寓意图层'),
+          name: normalizeInfoLayerDisplayName(slot.id, slot.name, 'bd队徽'),
           ...slotEnabled,
         })
       );
@@ -3535,23 +3849,36 @@ function normalizeInfoLayer(raw, forcedType = null) {
     const layerId = normalizeInfoLayerId(src.id, 'icon');
     const sourceCat = resolveInfoIconCategoryForLayer(layerId, src.sourceCat);
     const itemId = String(src.itemId == null ? '' : src.itemId).slice(0, 120);
+    const itemIds = normalizeInfoIconItemIds(src.itemIds);
+    const isActivityLayer = sourceCat === INFO_ICON_ACTIVITY_CATEGORY;
     const sizeModeRaw = String(src.sizeMode == null ? '' : src.sizeMode).trim().toLowerCase();
     const sizeMode = sizeModeRaw === 'fixed' ? 'fixed' : '';
     const targetSizeNum = Number(src.targetSize);
     const targetSize = Number.isFinite(targetSizeNum) && targetSizeNum > 0
       ? Math.max(1, Math.round(targetSizeNum))
       : null;
+    const mergedActivityItemIds = isActivityLayer
+      ? normalizeInfoIconItemIds(itemIds.length > 0 ? itemIds : (itemId ? [itemId] : []))
+      : [];
+    const finalItemId = isActivityLayer
+      ? (mergedActivityItemIds[0] || '')
+      : itemId;
+    const finalSizeMode = isActivityLayer ? 'fixed' : sizeMode;
+    const finalTargetSize = isActivityLayer
+      ? INFO_ACTIVITY_ICON_SIZE_PX
+      : targetSize;
     return {
       id: layerId,
       type: 'icon',
       name: sanitizeInfoLayerName(src.name, '图标图层'),
       enabled: src.enabled == null ? true : src.enabled === true,
       sourceCat,
-      itemId,
+      itemId: finalItemId,
+      itemIds: mergedActivityItemIds,
       x: Math.round(clampNumberInRange(src.x, -8192, 8192, 0)),
       y: Math.round(clampNumberInRange(src.y, -8192, 8192, 0)),
-      ...(sizeMode ? { sizeMode } : {}),
-      ...(targetSize != null ? { targetSize } : {}),
+      ...(finalSizeMode ? { sizeMode: finalSizeMode } : {}),
+      ...(finalTargetSize != null ? { targetSize: finalTargetSize } : {}),
       scale: clampNumberInRange(src.scale, INFO_ICON_SCALE_MIN, INFO_ICON_SCALE_MAX, 1),
       opacity: clampNumberInRange(src.opacity, 0, 1, 1),
     };
@@ -3571,7 +3898,7 @@ function normalizeInfoLayer(raw, forcedType = null) {
     return {
       id: normalizeInfoLayerId(src.id, 'special'),
       type: 'special',
-      name: sanitizeInfoLayerName(src.name, '寓意图层'),
+      name: normalizeInfoLayerDisplayName(src.id, src.name, 'bd队徽'),
       enabled: src.enabled == null ? false : src.enabled === true,
       bgItemId,
       maskItemId,
@@ -3665,9 +3992,12 @@ function normalizeInfoLayers(raw) {
     normalizedRaw.push(normalizeInfoLayer(item, type));
   }
 
+  const templateIdSet = new Set(template.map(layer => layer.id));
   const rawById = new Map();
   const poolsByType = new Map(INFO_LAYER_TYPES.map(type => [type, []]));
+  let hasTemplateIdMatch = false;
   for (const layer of normalizedRaw) {
+    if (templateIdSet.has(layer.id)) hasTemplateIdMatch = true;
     if (layer.id && !rawById.has(layer.id)) rawById.set(layer.id, layer);
     const typePool = poolsByType.get(layer.type);
     if (typePool) typePool.push(layer);
@@ -3676,7 +4006,7 @@ function normalizeInfoLayers(raw) {
   const poolIdxByType = new Map(INFO_LAYER_TYPES.map(type => [type, 0]));
   const out = template.map(slot => {
     let source = rawById.get(slot.id);
-    if (!source) {
+    if (!source && !hasTemplateIdMatch) {
       const pool = poolsByType.get(slot.type) || [];
       const idx = poolIdxByType.get(slot.type) || 0;
       source = pool[idx];
@@ -3689,7 +4019,7 @@ function normalizeInfoLayers(raw) {
         ...source,
         id: slot.id,
         type: slot.type,
-        name: sanitizeInfoLayerName(source.name, slot.name),
+        name: normalizeInfoLayerDisplayName(slot.id, source.name, slot.name),
       },
       slot.type
     );
@@ -3736,7 +4066,7 @@ function normalizeInfoPresetLayerStates(raw) {
 function saveInfoPresetLayerState(name, layers) {
   const target = normalizeInfoPresetName(name);
   if (!target) return;
-  infoPresetLayerStates[target] = cloneInfoLayerStateList(layers);
+  infoPresetLayerStates[target] = cloneInfoLayerStateList(maskInfoLayersToPreset(target, layers));
 }
 
 function saveActiveInfoPresetLayerState() {
@@ -3745,17 +4075,104 @@ function saveActiveInfoPresetLayerState() {
   saveInfoPresetLayerState(active, infoLayers);
 }
 
-function getInfoPresetLayerState(name, side = portraitSide) {
+function mergePresetDefaultsIntoExistingInfoLayers(existingLayers, preset, side = portraitSide) {
+  const current = normalizeInfoLayers(existingLayers);
+  if (!preset || !Array.isArray(preset.layers) || !preset.layers.length) {
+    return { layers: current, changed: false };
+  }
+  const template = normalizeInfoLayers([]);
+  const presetBuilt = buildInfoLayersFromPresetDefinition(preset, side);
+  const templateById = new Map(template.map(layer => [layer.id, layer]));
+  const presetById = new Map(presetBuilt.map(layer => [layer.id, layer]));
+  let changed = false;
+  const merged = current.map(layer => {
+    if (!layer || !layer.id) return layer;
+    const presetLayer = presetById.get(layer.id);
+    const templateLayer = templateById.get(layer.id);
+    if (!presetLayer || !templateLayer) return layer;
+    const currentJson = JSON.stringify(layer);
+    const templateJson = JSON.stringify(templateLayer);
+    if (currentJson !== templateJson) return layer;
+    const presetJson = JSON.stringify(presetLayer);
+    if (presetJson === templateJson) return layer;
+    changed = true;
+    return presetLayer;
+  });
+  return { layers: merged, changed };
+}
+
+function infoLayerContentSignature(layer) {
+  if (!layer || typeof layer !== 'object') return '';
+  const copy = { ...layer };
+  delete copy.id;
+  delete copy.name;
+  return JSON.stringify(copy);
+}
+
+function cleanPresetLayerContaminationBySignature(name, layers) {
   const target = normalizeInfoPresetName(name);
+  const normalized = normalizeInfoLayers(layers);
+  if (!target) return { layers: normalized, changed: false };
+  const preset = getInfoPresetDefinitionByName(target);
+  if (!preset || !Array.isArray(preset.layers) || !preset.layers.length) {
+    return { layers: normalized, changed: false };
+  }
+  const template = normalizeInfoLayers([]);
+  const templateById = new Map(template.map(layer => [layer.id, layer]));
+  const patchIdSet = new Set(
+    preset.layers
+      .map(layer => String(layer && layer.id != null ? layer.id : '').trim())
+      .filter(Boolean)
+  );
+  const patchSignatureSet = new Set(
+    normalized
+      .filter(layer => layer && patchIdSet.has(layer.id))
+      .map(infoLayerContentSignature)
+      .filter(Boolean)
+  );
+  let changed = false;
+  const out = normalized.map(layer => {
+    if (!layer || !layer.id) return layer;
+    if (patchIdSet.has(layer.id)) return layer;
+    const templateLayer = templateById.get(layer.id);
+    if (!templateLayer) return layer;
+    const sig = infoLayerContentSignature(layer);
+    const templateSig = infoLayerContentSignature(templateLayer);
+    if (!sig || sig === templateSig) return layer;
+    if (!patchSignatureSet.has(sig)) return layer;
+    changed = true;
+    return templateLayer;
+  });
+  return { layers: out, changed };
+}
+
+function getInfoPresetLayerState(name, side = portraitSide) {
+  const target = resolveEffectiveInfoPresetName(name);
   if (!target) return normalizeInfoLayers([]);
   const existing = infoPresetLayerStates[target];
   if (Array.isArray(existing) && existing.length) {
-    return cloneInfoLayerStateList(existing);
+    const preset = getInfoPresetDefinitionByName(target);
+    const merged = mergePresetDefaultsIntoExistingInfoLayers(existing, preset, side);
+    let nextLayers = merged.layers;
+    let changed = merged.changed;
+    const cleaned = cleanPresetLayerContaminationBySignature(target, nextLayers);
+    if (cleaned.changed) {
+      nextLayers = cleaned.layers;
+      changed = true;
+    }
+    const masked = maskInfoLayersToPreset(target, nextLayers);
+    if (JSON.stringify(masked) !== JSON.stringify(nextLayers)) {
+      nextLayers = masked;
+      changed = true;
+    }
+    if (changed) saveInfoPresetLayerState(target, nextLayers);
+    return cloneInfoLayerStateList(nextLayers);
   }
   const preset = getInfoPresetDefinitionByName(target);
   const built = preset ? buildInfoLayersFromPresetDefinition(preset, side) : normalizeInfoLayers([]);
-  saveInfoPresetLayerState(target, built);
-  return cloneInfoLayerStateList(built);
+  const maskedBuilt = maskInfoLayersToPreset(target, built);
+  saveInfoPresetLayerState(target, maskedBuilt);
+  return cloneInfoLayerStateList(maskedBuilt);
 }
 
 function getOrderedInfoPresetDefinitions() {
@@ -3816,7 +4233,7 @@ function buildInfoLayersFromPresetDefinition(definition, side = portraitSide) {
         ...(pos ? { x: pos.x, y: pos.y } : {}),
         id: slot.id,
         type: slot.type,
-        name: sanitizeInfoLayerName(patch.name, slot.name),
+        name: normalizeInfoLayerDisplayName(slot.id, patch.name, slot.name),
       },
       slot.type
     );
@@ -3875,11 +4292,13 @@ function renderInfoPresetButtons() {
 }
 
 function applyInfoPresetByName(name) {
-  const preset = getInfoPresetDefinitionByName(name);
+  const target = resolveEffectiveInfoPresetName(name);
+  const preset = getInfoPresetDefinitionByName(target);
   if (!preset) return;
   saveActiveInfoPresetLayerState();
-  infoPresetActiveName = preset.name;
-  infoLayers = getInfoPresetLayerState(preset.name, portraitSide);
+  infoPresetActiveName = target;
+  infoLayers = maskInfoLayersToPreset(target, getInfoPresetLayerState(target, portraitSide));
+  saveInfoPresetLayerState(target, infoLayers);
   collapseAllInfoLayerDropdownState();
   renderInfoPresetButtons();
   renderInfoLayersPanel();
@@ -3939,6 +4358,50 @@ function textLayerLines(text) {
   return String(text || '').replace(/\r\n/g, '\n').split('\n');
 }
 
+function measureTextLayerLineWidth(ctx, normalized, fontSpec, text) {
+  const value = String(text || '');
+  if (!value) return 0;
+  if (normalized.smallCaps) {
+    let width = 0;
+    const runs = buildSmallCapsRuns(value);
+    for (const run of runs) {
+      const runFontSize = Math.max(1, normalized.fontSize * (Number(run.scale) || 1));
+      ctx.font = buildTextLayerFontSpecWithSize(normalized, runFontSize);
+      width += ctx.measureText(run.text).width;
+    }
+    ctx.font = fontSpec;
+    return width;
+  }
+  return ctx.measureText(value).width;
+}
+
+function wrapTextLayerLinesByWidth(normalized, ctx, fontSpec, maxWidthPx) {
+  const baseLines = textLayerLines(normalized.text);
+  const limit = Number(maxWidthPx);
+  if (!Number.isFinite(limit) || limit <= 0) return baseLines;
+  const wrapped = [];
+  for (const baseLine of baseLines) {
+    const source = String(baseLine || '');
+    if (!source) {
+      wrapped.push('');
+      continue;
+    }
+    let current = '';
+    for (const ch of source) {
+      const candidate = current + ch;
+      const width = measureTextLayerLineWidth(ctx, normalized, fontSpec, candidate);
+      if (width <= limit || !current) {
+        current = candidate;
+        continue;
+      }
+      wrapped.push(current);
+      current = ch;
+    }
+    wrapped.push(current);
+  }
+  return wrapped.length ? wrapped : [''];
+}
+
 function hasRenderableTextLayer(layer) {
   const normalized = normalizeTextLayerState(layer);
   if (!normalized.enabled) return false;
@@ -3948,7 +4411,7 @@ function hasRenderableTextLayer(layer) {
 function hasRenderableInfoIconLayer(layer) {
   const normalized = normalizeInfoLayer(layer, 'icon');
   if (!normalized.enabled) return false;
-  return !!resolveInfoIconLayerItem(normalized);
+  return resolveInfoIconLayerItems(normalized).length > 0;
 }
 
 function hasRenderableInfoSpecialLayer(layer) {
@@ -3976,6 +4439,196 @@ function hasRenderableAnyInfoLayer(layer) {
   if (layer.type === 'fixed') return hasRenderableInfoFixedLayer(layer);
   if (layer.type === 'bar48') return hasRenderableInfoBar48Layer(layer);
   return hasRenderableTextLayer(layer);
+}
+
+function syncHoverOverlayCanvasSize() {
+  const main = document.getElementById('mainCanvas');
+  const overlay = document.getElementById('hoverOverlayCanvas');
+  if (!main || !overlay) return;
+  if (overlay.width !== main.width) overlay.width = main.width;
+  if (overlay.height !== main.height) overlay.height = main.height;
+}
+
+function findHoveredInfoLayerRegion() {
+  if (!Number.isInteger(hoveredInfoLayerIndex) || hoveredInfoLayerIndex < 0) return null;
+  for (const region of infoLayerHitRegions) {
+    if (!region || region.index !== hoveredInfoLayerIndex) continue;
+    return region;
+  }
+  return null;
+}
+
+function drawHoveredInfoLayerOverlay() {
+  syncHoverOverlayCanvasSize();
+  const overlay = document.getElementById('hoverOverlayCanvas');
+  if (!overlay) return;
+  const ctx = overlay.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  if (activePanel !== 'info') return;
+  const region = findHoveredInfoLayerRegion();
+  if (!region) return;
+
+  const pad = 4;
+  const x = Math.max(0, Math.floor(region.x - pad));
+  const y = Math.max(0, Math.floor(region.y - pad));
+  const right = Math.min(overlay.width, Math.ceil(region.x + region.width + pad));
+  const bottom = Math.min(overlay.height, Math.ceil(region.y + region.height + pad));
+  const w = Math.max(1, right - x);
+  const h = Math.max(1, bottom - y);
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(245, 158, 11, 0.16)';
+  ctx.strokeStyle = 'rgba(245, 158, 11, 0.95)';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = 'rgba(245, 158, 11, 0.45)';
+  ctx.shadowBlur = 18;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
+  ctx.restore();
+}
+
+function setInfoLayerHitRegions(regions) {
+  infoLayerHitRegions = Array.isArray(regions) ? regions : [];
+  if (
+    hoveredInfoLayerIndex >= 0 &&
+    !infoLayerHitRegions.some(region => region && region.index === hoveredInfoLayerIndex)
+  ) {
+    hoveredInfoLayerIndex = -1;
+  }
+  drawHoveredInfoLayerOverlay();
+}
+
+function buildInfoLayerHitRegion(index, layer, drawResult) {
+  if (!layer || !drawResult) return null;
+  if (layer.type === 'text') {
+    const bounds = drawResult && drawResult.bounds ? drawResult.bounds : null;
+    if (!bounds) return null;
+    const x = Number(bounds.minX);
+    const y = Number(bounds.minY);
+    const width = Number(bounds.width);
+    const height = Number(bounds.height);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) return null;
+    if (width <= 0 || height <= 0) return null;
+    return {
+      index,
+      id: layer.id || '',
+      type: layer.type,
+      x,
+      y,
+      width,
+      height,
+    };
+  }
+  const normalized = drawResult.normalized || normalizeInfoLayer(layer, layer.type);
+  const x = Number(normalized && normalized.x);
+  const y = Number(normalized && normalized.y);
+  const width = Number(drawResult.width);
+  const height = Number(drawResult.height);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) return null;
+  if (width <= 0 || height <= 0) return null;
+  return {
+    index,
+    id: layer.id || '',
+    type: layer.type,
+    x,
+    y,
+    width,
+    height,
+  };
+}
+
+function findInfoLayerHitRegionAtPoint(x, y) {
+  const px = Number(x);
+  const py = Number(y);
+  if (!Number.isFinite(px) || !Number.isFinite(py)) return null;
+  for (let i = infoLayerHitRegions.length - 1; i >= 0; i -= 1) {
+    const region = infoLayerHitRegions[i];
+    if (!region) continue;
+    if (px < region.x || py < region.y) continue;
+    if (px > region.x + region.width || py > region.y + region.height) continue;
+    return region;
+  }
+  return null;
+}
+
+function canvasPointFromPointerEvent(event) {
+  const canvas = document.getElementById('mainCanvas');
+  if (!canvas) return null;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+  const x = ((event.clientX - rect.left) / rect.width) * canvas.width;
+  const y = ((event.clientY - rect.top) / rect.height) * canvas.height;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return {
+    x,
+    y,
+    inside: x >= 0 && y >= 0 && x <= canvas.width && y <= canvas.height,
+  };
+}
+
+function setHoveredInfoLayerIndex(index) {
+  const next = Number.isInteger(index) && index >= 0 ? index : -1;
+  if (hoveredInfoLayerIndex === next) return;
+  hoveredInfoLayerIndex = next;
+  const viewport = document.getElementById('canvasViewport');
+  if (viewport) viewport.style.cursor = next >= 0 && activePanel === 'info' ? 'pointer' : '';
+  drawHoveredInfoLayerOverlay();
+}
+
+function getInfoLayerCardElement(index) {
+  const i = Number(index);
+  if (!Number.isInteger(i) || i < 0) return null;
+  const list = document.getElementById('infoLayerList');
+  if (!list) return null;
+  return list.querySelector(`.info-layer-card[data-layer-index="${i}"]`);
+}
+
+function scrollInfoLayerCardIntoView(index) {
+  const card = getInfoLayerCardElement(index);
+  if (!card) return;
+  card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function focusInfoLayerCardFromCanvas(index) {
+  const i = Number(index);
+  if (!Number.isInteger(i) || i < 0 || i >= infoLayers.length) return;
+  infoLayerCardOpenState[i] = true;
+  renderInfoLayersPanel();
+  requestAnimationFrame(() => scrollInfoLayerCardIntoView(i));
+}
+
+function handleInfoCanvasPointerMove(event) {
+  if (activePanel !== 'info') {
+    setHoveredInfoLayerIndex(-1);
+    return;
+  }
+  const pt = canvasPointFromPointerEvent(event);
+  if (!pt || !pt.inside) {
+    setHoveredInfoLayerIndex(-1);
+    return;
+  }
+  const hit = findInfoLayerHitRegionAtPoint(pt.x, pt.y);
+  setHoveredInfoLayerIndex(hit ? hit.index : -1);
+}
+
+function handleInfoCanvasClick(event) {
+  if (activePanel !== 'info') return;
+  const pt = canvasPointFromPointerEvent(event);
+  if (!pt || !pt.inside) return;
+  const hit = findInfoLayerHitRegionAtPoint(pt.x, pt.y);
+  if (!hit) return;
+  event.preventDefault();
+  focusInfoLayerCardFromCanvas(hit.index);
+}
+
+function setupInfoLayerCanvasHoverHandlers() {
+  const viewport = document.getElementById('canvasViewport');
+  if (!viewport || viewport.dataset.infoHoverBound === '1') return;
+  viewport.dataset.infoHoverBound = '1';
+  viewport.addEventListener('mousemove', handleInfoCanvasPointerMove);
+  viewport.addEventListener('mouseleave', () => setHoveredInfoLayerIndex(-1));
+  viewport.addEventListener('click', handleInfoCanvasClick);
 }
 
 function collapseAllInfoLayerDropdownState() {
@@ -4156,7 +4809,7 @@ function buildInfoTextLayerCardHtml(layer, index) {
   const isOpen = isInfoLayerCardOpen(index);
   const enableHtml = buildInfoLayerEnableHtml(normalized, index);
   return `
-    <div class="info-layer-card ${isOpen ? 'open' : ''}">
+    <div class="info-layer-card ${isOpen ? 'open' : ''}" data-layer-index="${index}">
       <div class="info-layer-head" onclick="toggleInfoLayerCard(${index})">
         ${enableHtml}
         <input class="info-layer-name" value="${escapeHtml(normalized.name)}" onclick="event.stopPropagation()" oninput="updateInfoLayerName(${index}, this.value)" placeholder="图层名称">
@@ -4238,18 +4891,34 @@ function buildInfoIconLayerCardHtml(layer, index) {
   const normalized = normalizeInfoLayer(layer, 'icon');
   const allowedSourceCat = resolveInfoIconCategoryForLayer(normalized.id, normalized.sourceCat);
   const materials = listInfoIconMaterialItems().filter(item => item.sourceCat === allowedSourceCat);
+  const isActivity = isInfoActivityIconLayer(normalized);
   const sizeMode = normalized && normalized.sizeMode === 'fixed' ? 'fixed' : '';
   const targetSize = Number.isFinite(Number(normalized.targetSize)) ? Math.round(Number(normalized.targetSize)) : '';
   const opacityPercent = Math.round(normalized.opacity * 100);
-  const selectedItem = resolveInfoIconLayerItem(normalized);
-  const hasMissingItem = !selectedItem && normalized.itemId;
+  const selectedItems = resolveInfoIconLayerItems(normalized);
+  const selectedIds = isActivity
+    ? normalizeInfoIconItemIds(
+        Array.isArray(normalized.itemIds) && normalized.itemIds.length > 0
+          ? normalized.itemIds
+          : normalized.itemId
+            ? [normalized.itemId]
+            : []
+      )
+    : (normalized.itemId ? [String(normalized.itemId)] : []);
+  const selectedIdSet = new Set(selectedIds.map(id => String(id)));
+  const selectedItemIdSet = new Set(
+    selectedItems
+      .filter(item => item && item.id != null)
+      .map(item => String(item.id))
+  );
+  const missingIds = selectedIds.filter(id => !selectedItemIdSet.has(String(id)));
   const isOpen = isInfoLayerCardOpen(index);
   const materialOpen = isInfoIconSubmenuOpen(index, 'material');
   const propsOpen = isInfoIconSubmenuOpen(index, 'props');
   const enableHtml = buildInfoLayerEnableHtml(normalized, index);
   let materialThumbs = '';
-  if (hasMissingItem) {
-    const missingLabel = `[已失效] ${String(normalized.itemId)}`;
+  for (const missingId of missingIds) {
+    const missingLabel = `[已失效] ${String(missingId)}`;
     materialThumbs += `
       <div class="thumb-item thumb-missing selected" title="${escapeHtml(missingLabel)}">
         <div class="tnum">${escapeHtml(missingLabel)}</div>
@@ -4258,10 +4927,12 @@ function buildInfoIconLayerCardHtml(layer, index) {
   }
   materialThumbs += materials
     .map(item => {
-      const selected = normalized.sourceCat === item.sourceCat && String(normalized.itemId) === String(item.id);
+      const selected = selectedIdSet.has(String(item.id));
       const previewSrc = iconImgSrcPreview(item.path);
       const hdSrc = iconImgSrcHd(item.path);
-      const onclick = `setInfoIconLayerMaterial(${index}, ${JSON.stringify(item.sourceCat)}, ${JSON.stringify(item.id)})`;
+      const onclick = isActivity
+        ? `toggleInfoIconLayerMaterial(${index}, ${JSON.stringify(item.sourceCat)}, ${JSON.stringify(item.id)})`
+        : `setInfoIconLayerMaterial(${index}, ${JSON.stringify(item.sourceCat)}, ${JSON.stringify(item.id)})`;
       const title = `[${item.sourceCat}] ${item.name}`;
       return `
         <div class="thumb-item ${selected ? 'selected' : ''}" title="${escapeHtml(title)}" onclick='${onclick}'>
@@ -4279,9 +4950,39 @@ function buildInfoIconLayerCardHtml(layer, index) {
     })
     .join('');
   if (!materialThumbs) materialThumbs = '<div class="no-imgs">暂无素材</div>';
+  const materialHint = isActivity
+    ? `<p class="info-fixed-note">已选 ${selectedIds.length}/${INFO_ACTIVITY_ICON_MAX_COUNT}。点击图标可取消，按选择顺序从左到右排列。</p>`
+    : '';
+  const activityLayoutHint = isActivity
+    ? `
+      <div class="text-layer-field text-layer-full">
+        <label>布局规则</label>
+        <p class="info-fixed-note">固定 ${INFO_ACTIVITY_ICON_SIZE_PX}×${INFO_ACTIVITY_ICON_SIZE_PX}px，横向间隔 ${INFO_ACTIVITY_ICON_GAP_PX}px，最多 ${INFO_ACTIVITY_ICON_MAX_COUNT} 个。</p>
+      </div>
+    `
+    : '';
+  const sizeControlsHtml = isActivity
+    ? ''
+    : `
+      <div class="text-layer-field">
+        <label>尺寸模式</label>
+        <select class="text-layer-input info-select-like-preset" onchange="updateInfoIconLayerField(${index}, 'sizeMode', this.value)">
+          <option value="" ${sizeMode === '' ? 'selected' : ''}>跟随缩放</option>
+          <option value="fixed" ${sizeMode === 'fixed' ? 'selected' : ''}>固定边长</option>
+        </select>
+      </div>
+      <div class="text-layer-field">
+        <label>目标边长(px)</label>
+        <input type="number" min="1" max="8192" step="1" value="${targetSize}" placeholder="留空" oninput="updateInfoIconLayerField(${index}, 'targetSize', this.value)">
+      </div>
+      <div class="text-layer-field">
+        <label>缩放</label>
+        <input type="number" min="${INFO_ICON_SCALE_MIN}" max="${INFO_ICON_SCALE_MAX}" step="0.01" value="${normalized.scale}" oninput="updateInfoIconLayerField(${index}, 'scale', this.value)">
+      </div>
+    `;
 
   return `
-    <div class="info-layer-card ${isOpen ? 'open' : ''}">
+    <div class="info-layer-card ${isOpen ? 'open' : ''}" data-layer-index="${index}">
       <div class="info-layer-head" onclick="toggleInfoLayerCard(${index})">
         ${enableHtml}
         <input class="info-layer-name" value="${escapeHtml(normalized.name)}" onclick="event.stopPropagation()" oninput="updateInfoLayerName(${index}, this.value)" placeholder="图层名称">
@@ -4297,6 +4998,7 @@ function buildInfoIconLayerCardHtml(layer, index) {
             <span class="info-submenu-arrow">▼</span>
           </button>
           <div class="info-submenu-body">
+            ${materialHint}
             <div class="thumb-row">
               ${materialThumbs}
             </div>
@@ -4317,21 +5019,8 @@ function buildInfoIconLayerCardHtml(layer, index) {
                 <label>Y</label>
                 <input type="number" min="-8192" max="8192" step="1" value="${normalized.y}" oninput="updateInfoIconLayerField(${index}, 'y', this.value)">
               </div>
-              <div class="text-layer-field">
-                <label>尺寸模式</label>
-                <select class="text-layer-input info-select-like-preset" onchange="updateInfoIconLayerField(${index}, 'sizeMode', this.value)">
-                  <option value="" ${sizeMode === '' ? 'selected' : ''}>跟随缩放</option>
-                  <option value="fixed" ${sizeMode === 'fixed' ? 'selected' : ''}>固定边长</option>
-                </select>
-              </div>
-              <div class="text-layer-field">
-                <label>目标边长(px)</label>
-                <input type="number" min="1" max="8192" step="1" value="${targetSize}" placeholder="留空" oninput="updateInfoIconLayerField(${index}, 'targetSize', this.value)">
-              </div>
-              <div class="text-layer-field">
-                <label>缩放</label>
-                <input type="number" min="${INFO_ICON_SCALE_MIN}" max="${INFO_ICON_SCALE_MAX}" step="0.01" value="${normalized.scale}" oninput="updateInfoIconLayerField(${index}, 'scale', this.value)">
-              </div>
+              ${sizeControlsHtml}
+              ${activityLayoutHint}
               <div class="text-layer-field text-layer-full">
                 <label>透明度</label>
                 <div class="text-layer-range-wrap">
@@ -4439,7 +5128,7 @@ function buildInfoSpecialLayerCardHtml(layer, index) {
   });
 
   return `
-    <div class="info-layer-card ${isOpen ? 'open' : ''}">
+    <div class="info-layer-card ${isOpen ? 'open' : ''}" data-layer-index="${index}">
       <div class="info-layer-head" onclick="toggleInfoLayerCard(${index})">
         ${enableHtml}
         <input class="info-layer-name" value="${escapeHtml(normalized.name)}" onclick="event.stopPropagation()" oninput="updateInfoLayerName(${index}, this.value)" placeholder="图层名称">
@@ -4553,7 +5242,7 @@ function buildInfoFixedLayerCardHtml(layer, index) {
   const normalized = normalizeInfoLayer(layer, 'fixed');
   const enableHtml = buildInfoLayerEnableHtml(normalized, index);
   return `
-    <div class="info-layer-card">
+    <div class="info-layer-card" data-layer-index="${index}">
       <div class="info-layer-head info-layer-head-static">
         ${enableHtml}
         <div class="info-layer-name">${escapeHtml(normalized.name)}</div>
@@ -4578,7 +5267,7 @@ function buildInfoBar48LayerCardHtml(layer, index) {
     })
     .join('');
   return `
-    <div class="info-layer-card ${isOpen ? 'open' : ''}">
+    <div class="info-layer-card ${isOpen ? 'open' : ''}" data-layer-index="${index}">
       <div class="info-layer-head" onclick="toggleInfoLayerCard(${index})">
         ${enableHtml}
         <input class="info-layer-name" value="${escapeHtml(normalized.name)}" onclick="event.stopPropagation()" oninput="updateInfoLayerName(${index}, this.value)" placeholder="图层名称">
@@ -4641,6 +5330,47 @@ function buildInfoBar48LayerCardHtml(layer, index) {
   `;
 }
 
+function resolveEffectiveInfoPresetName(name = infoPresetActiveName) {
+  const direct = normalizeInfoPresetName(name);
+  if (direct) return direct;
+  return normalizeInfoPresetName(INFO_PRESET_DEFAULT_NAME);
+}
+
+function getPresetLayerIdSet(name = infoPresetActiveName) {
+  const preset = getInfoPresetDefinitionByName(resolveEffectiveInfoPresetName(name));
+  if (!preset || !Array.isArray(preset.layers) || !preset.layers.length) return null;
+  const ids = new Set();
+  for (const layer of preset.layers) {
+    const id = String(layer && layer.id != null ? layer.id : '').trim();
+    if (id) ids.add(id);
+  }
+  return ids.size ? ids : null;
+}
+
+function maskInfoLayersToPreset(name, layers) {
+  const normalized = normalizeInfoLayers(layers);
+  const presetIds = getPresetLayerIdSet(name);
+  if (!presetIds) return normalized;
+  return normalized.map(layer => {
+    if (!layer || !layer.id || presetIds.has(String(layer.id))) return layer;
+    if (layer.enabled !== true) return layer;
+    return normalizeInfoLayer({ ...layer, enabled: false }, layer.type);
+  });
+}
+
+function getInfoLayerListIndicesForCurrentPreset(layers = infoLayers) {
+  const src = Array.isArray(layers) ? layers : [];
+  const presetIds = getPresetLayerIdSet(infoPresetActiveName);
+  if (!presetIds) return src.map((_, index) => index);
+  const out = [];
+  for (let i = 0; i < src.length; i += 1) {
+    const layer = src[i];
+    if (!layer || !layer.id) continue;
+    if (presetIds.has(String(layer.id))) out.push(i);
+  }
+  return out;
+}
+
 function renderInfoLayersPanel() {
   infoLayers = normalizeInfoLayers(infoLayers);
   updateToggleAllInfoLayerVisibilityButton();
@@ -4649,13 +5379,15 @@ function renderInfoLayersPanel() {
   normalizeInfoLayerCardOpenState();
   normalizeInfoIconSubmenuOpenState();
 
-  if (!infoLayers.length) {
+  const visibleIndices = getInfoLayerListIndicesForCurrentPreset(infoLayers);
+  if (!visibleIndices.length) {
     listEl.innerHTML = '<div class="no-imgs">当前未配置信息图层槽位。</div>';
     return;
   }
 
-  listEl.innerHTML = infoLayers
-    .map((layer, index) => {
+  listEl.innerHTML = visibleIndices
+    .map(index => {
+      const layer = infoLayers[index];
       if (layer.type === 'icon') return buildInfoIconLayerCardHtml(layer, index);
       if (layer.type === 'special') return buildInfoSpecialLayerCardHtml(layer, index);
       if (layer.type === 'fixed') return buildInfoFixedLayerCardHtml(layer, index);
@@ -4665,9 +5397,11 @@ function renderInfoLayersPanel() {
     .join('');
 }
 
-function hasAnyEnabledInfoLayer(layers = infoLayers) {
+function hasAnyEnabledInfoLayer(layers = infoLayers, indices = null) {
   if (!Array.isArray(layers) || layers.length === 0) return false;
-  for (const layer of layers) {
+  const targetIndices = Array.isArray(indices) ? indices : getInfoLayerListIndicesForCurrentPreset(layers);
+  for (const idx of targetIndices) {
+    const layer = layers[idx];
     if (layer && layer.enabled === true) return true;
   }
   return false;
@@ -4686,13 +5420,16 @@ function updateToggleAllInfoLayerVisibilityButton() {
 
 function toggleAllInfoLayersVisibility() {
   infoLayers = normalizeInfoLayers(infoLayers);
-  const hasVisibleLayer = hasAnyEnabledInfoLayer(infoLayers);
+  const visibleIndices = getInfoLayerListIndicesForCurrentPreset(infoLayers);
+  const indexSet = new Set(visibleIndices);
+  const hasVisibleLayer = hasAnyEnabledInfoLayer(infoLayers, visibleIndices);
   const ask = hasVisibleLayer ? '是否隐藏所有图层？' : '是否显示所有图层？';
   if (!window.confirm(ask)) return;
   const nextEnabled = !hasVisibleLayer;
-  infoLayers = infoLayers.map(layer =>
-    normalizeInfoLayer({ ...layer, enabled: nextEnabled }, layer.type)
-  );
+  infoLayers = infoLayers.map((layer, index) => {
+    if (!indexSet.has(index)) return layer;
+    return normalizeInfoLayer({ ...layer, enabled: nextEnabled }, layer.type);
+  });
   renderInfoLayersPanel();
   queueInfoLayerRender(true);
 }
@@ -4756,7 +5493,10 @@ function resetAllInfoTextLayerContents() {
 
   const activePreset = getInfoPresetDefinitionByName(infoPresetActiveName);
   const baselineLayers = activePreset
-    ? buildInfoLayersFromPresetDefinition(activePreset, portraitSide)
+    ? maskInfoLayersToPreset(
+        infoPresetActiveName,
+        buildInfoLayersFromPresetDefinition(activePreset, portraitSide)
+      )
     : normalizeInfoLayers([]);
   infoLayers = cloneInfoLayerStateList(baselineLayers);
 
@@ -4808,9 +5548,13 @@ function setupTextLayerControls() {
   if (!panel) return;
   setupInfoPanelNumberInputAutoSelect();
   setTextLayerLocalFontsStatus('');
-  infoPresetActiveName = normalizeInfoPresetName(infoPresetActiveName);
+  infoPresetActiveName = resolveEffectiveInfoPresetName(infoPresetActiveName);
   if (infoPresetActiveName) {
-    infoLayers = getInfoPresetLayerState(infoPresetActiveName, portraitSide);
+    infoLayers = maskInfoLayersToPreset(
+      infoPresetActiveName,
+      getInfoPresetLayerState(infoPresetActiveName, portraitSide)
+    );
+    saveInfoPresetLayerState(infoPresetActiveName, infoLayers);
   } else {
     infoLayers = normalizeInfoLayers(infoLayers);
   }
@@ -4995,8 +5739,74 @@ function setInfoIconLayerMaterial(index, sourceCat, itemId) {
   const layer = infoLayers[i];
   if (!layer || layer.type !== 'icon') return;
   const forcedSourceCat = resolveInfoIconCategoryForLayer(layer.id, sourceCat);
-  const next = normalizeInfoLayer({ ...layer, sourceCat: forcedSourceCat, itemId }, 'icon');
+  const nextRaw = {
+    ...layer,
+    sourceCat: forcedSourceCat,
+    itemId,
+  };
+  if (forcedSourceCat === INFO_ICON_ACTIVITY_CATEGORY) {
+    const itemIds = normalizeInfoIconItemIds(itemId ? [itemId] : []);
+    nextRaw.itemIds = itemIds;
+    nextRaw.itemId = itemIds[0] || '';
+  } else {
+    nextRaw.itemIds = [];
+  }
+  const next = normalizeInfoLayer(nextRaw, 'icon');
   infoLayers[i] = next;
+  renderInfoLayersPanel();
+  restoreInfoIconMaterialMenuScroll(i, scrollState);
+  queueInfoLayerRender(true);
+}
+
+function toggleInfoIconLayerMaterial(index, sourceCat, itemId) {
+  const i = Number(index);
+  if (!Number.isInteger(i) || i < 0 || i >= infoLayers.length) return;
+  const layer = infoLayers[i];
+  if (!layer || layer.type !== 'icon') return;
+  const forcedSourceCat = resolveInfoIconCategoryForLayer(layer.id, sourceCat);
+  if (forcedSourceCat !== INFO_ICON_ACTIVITY_CATEGORY) {
+    setInfoIconLayerMaterial(index, forcedSourceCat, itemId);
+    return;
+  }
+  const scrollState = captureInfoIconMaterialMenuScroll(i);
+  const normalized = normalizeInfoLayer(
+    {
+      ...layer,
+      sourceCat: forcedSourceCat,
+    },
+    'icon'
+  );
+  const currentIds = normalizeInfoIconItemIds(
+    Array.isArray(normalized.itemIds) && normalized.itemIds.length > 0
+      ? normalized.itemIds
+      : normalized.itemId
+        ? [normalized.itemId]
+        : []
+  );
+  const targetId = String(itemId == null ? '' : itemId).trim();
+  if (!targetId) return;
+
+  const exists = currentIds.includes(targetId);
+  let nextIds;
+  if (exists) {
+    nextIds = currentIds.filter(id => id !== targetId);
+  } else {
+    if (currentIds.length >= INFO_ACTIVITY_ICON_MAX_COUNT) {
+      alert(`最多可选择 ${INFO_ACTIVITY_ICON_MAX_COUNT} 个活动图标`);
+      return;
+    }
+    nextIds = [...currentIds, targetId];
+  }
+  nextIds = normalizeInfoIconItemIds(nextIds, INFO_ACTIVITY_ICON_MAX_COUNT);
+  infoLayers[i] = normalizeInfoLayer(
+    {
+      ...layer,
+      sourceCat: forcedSourceCat,
+      itemIds: nextIds,
+      itemId: nextIds[0] || '',
+    },
+    'icon'
+  );
   renderInfoLayersPanel();
   restoreInfoIconMaterialMenuScroll(i, scrollState);
   queueInfoLayerRender(true);
@@ -5032,8 +5842,7 @@ function captureInfoLayerSubmenuScroll(index, submenuKey = '') {
   const i = Number(index);
   if (!Number.isInteger(i) || i < 0) return null;
   const panelScroll = document.getElementById('panelScroll');
-  const cards = document.querySelectorAll('#infoLayerList .info-layer-card');
-  const card = cards[i];
+  const card = getInfoLayerCardElement(i);
   if (!card) return null;
   const key = String(submenuKey || '').trim();
   const menuSelector = key ? `.info-submenu[data-submenu-key="${key}"]` : '.info-submenu';
@@ -5057,8 +5866,7 @@ function restoreInfoLayerSubmenuScroll(index, state, submenuKey = '') {
       panelScroll.scrollTop = Math.max(0, Number(state.panelTop));
     }
 
-    const cards = document.querySelectorAll('#infoLayerList .info-layer-card');
-    const card = cards[i];
+    const card = getInfoLayerCardElement(i);
     if (!card) return;
     const key = String(submenuKey || '').trim();
     const menuSelector = key ? `.info-submenu[data-submenu-key="${key}"]` : '.info-submenu';
@@ -5090,7 +5898,10 @@ function setInfoIconLayerCategory(index, cat) {
   const layer = infoLayers[i];
   if (!layer || layer.type !== 'icon') return;
   const forcedSourceCat = resolveInfoIconCategoryForLayer(layer.id, cat);
-  const next = normalizeInfoLayer({ ...layer, sourceCat: forcedSourceCat, itemId: '' }, 'icon');
+  const next = normalizeInfoLayer(
+    { ...layer, sourceCat: forcedSourceCat, itemId: '', itemIds: [] },
+    'icon'
+  );
   infoLayers[i] = next;
   renderInfoLayersPanel();
   queueInfoLayerRender(true);
@@ -5147,8 +5958,7 @@ function focusInfoTextLayerEditor(index) {
   const i = Number(index);
   if (!Number.isInteger(i) || i < 0) return;
   requestAnimationFrame(() => {
-    const cards = document.querySelectorAll('#infoLayerList .info-layer-card');
-    const card = cards[i];
+    const card = getInfoLayerCardElement(i);
     if (!card) return;
     const textarea = card.querySelector('textarea.text-layer-textarea');
     if (!textarea) return;
@@ -5265,7 +6075,10 @@ function resetInfoTextLayer(index) {
   // 目标：回到“当前预设”该槽位参数；若无预设则回到固定模板默认参数。
   const activePreset = getInfoPresetDefinitionByName(infoPresetActiveName);
   const baselineLayers = activePreset
-    ? buildInfoLayersFromPresetDefinition(activePreset, portraitSide)
+    ? maskInfoLayersToPreset(
+        infoPresetActiveName,
+        buildInfoLayersFromPresetDefinition(activePreset, portraitSide)
+      )
     : normalizeInfoLayers([]);
   const baselineById = new Map(
     baselineLayers
@@ -5420,7 +6233,6 @@ function resolveTextLayerStrokeOutsetPx(layer) {
 
 function computeTextLayerLayout(layer) {
   const normalized = normalizeTextLayerState(layer);
-  const lines = textLayerLines(normalized.text);
   const lineHeightPx = Math.max(1, Math.round(normalized.fontSize * normalized.lineHeight));
   const xAnchor = Math.round(normalized.x);
   const yAnchor = Math.round(normalized.y);
@@ -5441,6 +6253,15 @@ function computeTextLayerLayout(layer) {
   const fontSpec = buildTextLayerFontSpec(normalized);
   ctx.font = fontSpec;
   applyCanvasTextFeatureHints(ctx, normalized);
+  const iconExtraWidthPx =
+    iconWidthPx > 0 && iconHeightPx > 0
+      ? iconWidthPx + iconGapPx
+      : 0;
+  const wrapWidthPx = Math.max(
+    1,
+    INFO_TEXT_AUTO_WRAP_MAX_WIDTH / scaleX - iconExtraWidthPx
+  );
+  const lines = wrapTextLayerLinesByWidth(normalized, ctx, fontSpec, wrapWidthPx);
   const underlineOffset = Math.max(1, Math.round(normalized.fontSize * 0.08));
   const underlineThickness = Math.max(1, Math.round(normalized.fontSize * 0.06));
 
@@ -6026,16 +6847,51 @@ async function drawInfoSpecialLayer(ctx, layer, options = {}) {
 async function drawInfoIconLayer(ctx, layer, options = {}) {
   const normalized = normalizeInfoLayer(layer, 'icon');
   if (!hasRenderableInfoIconLayer(normalized)) return null;
-  const item = resolveInfoIconLayerItem(normalized);
+  const items = resolveInfoIconLayerItems(normalized);
+  if (!items.length) return null;
+  const hasFixedSize = normalized.sizeMode === 'fixed' && Number.isFinite(Number(normalized.targetSize)) && Number(normalized.targetSize) > 0;
+  const fixedSize = hasFixedSize ? Math.max(1, Math.round(Number(normalized.targetSize))) : 0;
+  const offsetX = Number.isFinite(Number(options.offsetX)) ? Number(options.offsetX) : 0;
+  const offsetY = Number.isFinite(Number(options.offsetY)) ? Number(options.offsetY) : 0;
+
+  if (isInfoActivityIconLayer(normalized)) {
+    const drawSize = Math.max(1, INFO_ACTIVITY_ICON_SIZE_PX);
+    const gap = Math.max(0, INFO_ACTIVITY_ICON_GAP_PX);
+    const totalWidth = items.length > 0 ? drawSize * items.length + gap * (items.length - 1) : 0;
+    const loaded = await Promise.all(
+      items.map(async item => {
+        if (!item || !item.path) return null;
+        const img = await loadImgHd(item.path);
+        if (!img) return null;
+        return { item, img };
+      })
+    );
+    const drawables = loaded.filter(Boolean);
+    if (!drawables.length) return null;
+    ctx.save();
+    ctx.globalAlpha = normalized.opacity;
+    for (let idx = 0; idx < drawables.length; idx += 1) {
+      const drawable = drawables[idx];
+      const dx = normalized.x + offsetX + idx * (drawSize + gap);
+      const dy = normalized.y + offsetY;
+      setCanvasImageSmoothing(ctx, shouldSmoothWhenScaledDown(drawable.img, drawSize, drawSize));
+      ctx.drawImage(drawable.img, dx, dy, drawSize, drawSize);
+    }
+    ctx.restore();
+    return {
+      normalized,
+      items: drawables.map(entry => entry.item),
+      width: totalWidth,
+      height: drawSize,
+    };
+  }
+
+  const item = items[0];
   if (!item || !item.path) return null;
   const img = await loadImgHd(item.path);
   if (!img) return null;
-  const hasFixedSize = normalized.sizeMode === 'fixed' && Number.isFinite(Number(normalized.targetSize)) && Number(normalized.targetSize) > 0;
-  const fixedSize = hasFixedSize ? Math.max(1, Math.round(Number(normalized.targetSize))) : 0;
   const width = hasFixedSize ? fixedSize : Math.max(1, Math.round(img.naturalWidth * normalized.scale));
   const height = hasFixedSize ? fixedSize : Math.max(1, Math.round(img.naturalHeight * normalized.scale));
-  const offsetX = Number.isFinite(Number(options.offsetX)) ? Number(options.offsetX) : 0;
-  const offsetY = Number.isFinite(Number(options.offsetY)) ? Number(options.offsetY) : 0;
   ctx.save();
   ctx.globalAlpha = normalized.opacity;
   setCanvasImageSmoothing(ctx, shouldSmoothWhenScaledDown(img, width, height));
@@ -6083,29 +6939,31 @@ function buildInfoRuntimeLayers(rawLayers = infoLayers) {
   return resolvedLayers;
 }
 
-async function drawInfoLayers(ctx, rawLayers = infoLayers) {
+async function drawInfoLayers(ctx, rawLayers = infoLayers, options = {}) {
+  const opts = options && typeof options === 'object' ? options : {};
+  const trackHitRegions = opts.trackHitRegions === true;
+  const regions = trackHitRegions ? [] : null;
   const layers = buildInfoRuntimeLayers(rawLayers);
-  for (const layer of layers) {
+  for (let idx = 0; idx < layers.length; idx += 1) {
+    const layer = layers[idx];
+    let drawResult = null;
     if (layer.type === 'icon') {
-      await drawInfoIconLayer(ctx, layer);
-      continue;
+      drawResult = await drawInfoIconLayer(ctx, layer);
+    } else if (layer.type === 'special') {
+      drawResult = await drawInfoSpecialLayer(ctx, layer);
+    } else if (layer.type === 'fixed') {
+      drawResult = await drawInfoFixedLayer(ctx, layer);
+    } else if (layer.type === 'bar48') {
+      drawResult = await drawInfoBar48Layer(ctx, layer);
+    } else {
+      drawResult = await drawTextLayer(ctx, layer);
     }
-    if (layer.type === 'special') {
-      await drawInfoSpecialLayer(ctx, layer);
-      continue;
-    }
-    if (layer.type === 'fixed') {
-      await drawInfoFixedLayer(ctx, layer);
-      continue;
-    }
-    if (layer.type === 'bar48') {
-      await drawInfoBar48Layer(ctx, layer);
-      continue;
-    }
-    {
-      await drawTextLayer(ctx, layer);
+    if (trackHitRegions) {
+      const region = buildInfoLayerHitRegion(idx, layer, drawResult);
+      if (region) regions.push(region);
     }
   }
+  if (trackHitRegions) setInfoLayerHitRegions(regions);
 }
 
 async function createInfoTextLayerData(layer) {
@@ -6140,7 +6998,41 @@ async function createInfoTextLayerData(layer) {
 async function createInfoIconLayerData(layer) {
   const normalized = normalizeInfoLayer(layer, 'icon');
   if (!hasRenderableInfoIconLayer(normalized)) return null;
-  const item = resolveInfoIconLayerItem(normalized);
+  const items = resolveInfoIconLayerItems(normalized);
+  if (!items.length) return null;
+
+  if (isInfoActivityIconLayer(normalized)) {
+    const drawSize = Math.max(1, INFO_ACTIVITY_ICON_SIZE_PX);
+    const gap = Math.max(0, INFO_ACTIVITY_ICON_GAP_PX);
+    const width = drawSize * items.length + gap * Math.max(0, items.length - 1);
+    const height = drawSize;
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, width);
+    c.height = Math.max(1, height);
+    const ctx = c.getContext('2d');
+    ctx.globalAlpha = normalized.opacity;
+    for (let idx = 0; idx < items.length; idx += 1) {
+      const item = items[idx];
+      if (!item || !item.path) continue;
+      await ensureHdLoaded(item.path);
+      const img = imgCacheHd[item.path];
+      if (!img) continue;
+      const x = idx * (drawSize + gap);
+      setCanvasImageSmoothing(ctx, shouldSmoothWhenScaledDown(img, drawSize, drawSize));
+      ctx.drawImage(img, x, 0, drawSize, drawSize);
+    }
+    return {
+      name: normalized.name || '活动图标',
+      x: normalized.x,
+      y: normalized.y,
+      width: c.width,
+      height: c.height,
+      rgbaData: canvasToPngDataUrl(c),
+      sourceType: 'info-icon',
+    };
+  }
+
+  const item = items[0];
   if (!item || !item.path) return null;
   await ensureHdLoaded(item.path);
   const img = imgCacheHd[item.path];
@@ -6290,8 +7182,10 @@ async function createMergedInfoLayersData(rawLayers = infoLayers) {
 
 function countRenderableInfoLayers() {
   const layers = normalizeInfoLayers(infoLayers);
+  const visibleIndices = getInfoLayerListIndicesForCurrentPreset(layers);
   let count = 0;
-  for (const layer of layers) {
+  for (const index of visibleIndices) {
+    const layer = layers[index];
     if (hasRenderableAnyInfoLayer(layer)) {
       count++;
     }
@@ -6302,11 +7196,15 @@ function countRenderableInfoLayers() {
 function collectInfoIconPathsForRender() {
   const out = [];
   const layers = normalizeInfoLayers(infoLayers);
-  for (const layer of layers) {
+  const visibleIndices = getInfoLayerListIndicesForCurrentPreset(layers);
+  for (const index of visibleIndices) {
+    const layer = layers[index];
     if (!layer || layer.enabled !== true) continue;
     if (layer.type === 'icon') {
-      const item = resolveInfoIconLayerItem(layer);
-      if (item && item.path) out.push(item.path);
+      const items = resolveInfoIconLayerItems(layer);
+      for (const item of items) {
+        if (item && item.path) out.push(item.path);
+      }
       continue;
     }
     if (layer.type === 'special') {
@@ -7008,8 +7906,10 @@ async function switchPanelTab(panel) {
   document.getElementById('portraitPanel').style.display  = nextPanel === 'portrait'  ? '' : 'none';
   document.getElementById('nameplatePanel').style.display = nextPanel === 'nameplate' ? '' : 'none';
   document.getElementById('infoPanel').style.display      = nextPanel === 'info'      ? '' : 'none';
+  if (nextPanel !== 'info') setHoveredInfoLayerIndex(-1);
   if (nextPanel === 'portrait') await switchTab('portrait');
   else await switchTab('full');
+  drawHoveredInfoLayerOverlay();
   schedulePersistComposerConfig();
 }
 
@@ -7281,6 +8181,9 @@ async function renderPortraitOnly() {
   if (frame) await drawImgFull(ctx, frame.path);
   const deco = selected['肖像装饰物'];
   if (deco) await drawImgFull(ctx, deco.path);
+  setInfoLayerHitRegions([]);
+  syncHoverOverlayCanvasSize();
+  drawHoveredInfoLayerOverlay();
 }
 
 function isRenderSerialCurrent(serial) {
@@ -7331,7 +8234,7 @@ async function renderFull(options = {}) {
   if (!isRenderSerialCurrent(serial)) return;
   await drawLayer(ctx, '铭牌装饰物B');
   if (!isRenderSerialCurrent(serial)) return;
-  await drawInfoLayers(ctx);
+  await drawInfoLayers(ctx, infoLayers, { trackHitRegions: true });
   if (!isRenderSerialCurrent(serial)) return;
 
   const canvas = document.getElementById('mainCanvas');
@@ -7341,6 +8244,8 @@ async function renderFull(options = {}) {
   outCtx.clearRect(0, 0, CANVAS_FULL.w, CANVAS_FULL.h);
   outCtx.imageSmoothingEnabled = false;
   outCtx.drawImage(stage, 0, 0);
+  syncHoverOverlayCanvasSize();
+  drawHoveredInfoLayerOverlay();
 }
 
 // 在指定 ctx 的 (px, py) 位置绘制肖像画布
@@ -7897,6 +8802,7 @@ function arrayBufferToBase64(buffer) {
 // 启动
 // ============================================================
 setupCustomCropCanvasListeners();
+setupInfoLayerCanvasHoverHandlers();
 applyHeaderIconPaths();
 applyThemeFromStorage();
 init();
