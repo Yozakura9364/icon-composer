@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="icon-composer-base" content="@@ICON_APP_BASE@@">
 <title>铭牌生成器</title>
-<link rel="stylesheet" href="src/client/styles/main.css?v=20260422n">
+<link rel="stylesheet" href="src/client/styles/main.css?v=20260422v">
 </head>
 <body>
 
@@ -42,9 +42,18 @@
   </div>
 </div>
 
+<div id="aboutModal" class="about-modal-backdrop" aria-hidden="true" onclick="if(event.target===this)closeAboutModal()">
+  <div class="about-modal-panel" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle" onclick="event.stopPropagation()">
+    <div class="about-modal-head">
+      <div class="about-modal-title" id="aboutModalTitle">关于字体与鸣谢</div>
+      <button type="button" class="about-modal-close" onclick="closeAboutModal()" aria-label="关闭关于弹窗">×</button>
+    </div>
+    <div id="aboutModalContent" class="about-modal-content">加载中...</div>
+  </div>
+</div>
+
 <header>
-  <h1>铭牌生成器</h1>
-  <div class="subtitle">FF14铭牌DIY</div>
+  <h1>云铭牌</h1>
   <div class="header-actions">
     <button type="button" class="btn btn-ghost header-icon-btn" id="themeToggleBtn" onclick="toggleTheme()" title="切换浅色/深色" aria-label="切换浅色/深色">
       <img id="themeToggleIcon" alt="" aria-hidden="true">
@@ -53,6 +62,7 @@
       <img id="settingsIcon" alt="" aria-hidden="true">
     </button>
     <div class="mobile-action-list" id="settingsActionList" aria-hidden="true" onmouseleave="closeSettingsMenu()">
+      <button class="btn btn-ghost" onclick="openAboutModal(); closeSettingsMenu();">关于...</button>
       <button class="btn btn-ghost" onclick="void importComposerConfigFromClipboard(); closeSettingsMenu();">从剪贴板导入</button>
       <button class="btn btn-ghost" onclick="triggerLoadComposerConfigFile(); closeSettingsMenu();">从JSON导入</button>
     </div>
@@ -226,16 +236,16 @@
   </div>
 </div>
 
-<script src="src/client/scripts/00-paths-and-constants.js?v=20260422m"></script>
+<script src="src/client/scripts/00-paths-and-constants.js?v=20260422ze"></script>
 <script src="src/client/scripts/state/store.js"></script>
 <script src="src/client/scripts/state/persistence.js"></script>
 <script src="src/client/scripts/features/theme/theme.js"></script>
-<script src="src/client/scripts/features/info-layers/model.js?v=20260422d"></script>
+<script src="src/client/scripts/features/info-layers/model.js?v=20260422f"></script>
 <script src="src/client/scripts/features/presets/presets.js?v=20260422l"></script>
 <script src="src/client/scripts/features/info-layers/canvas-overlay.js?v=20260422n"></script>
-<script src="src/client/scripts/features/info-layers/panel-render.js?v=20260422m"></script>
+<script src="src/client/scripts/features/info-layers/panel-render.js?v=20260422n"></script>
 <script src="src/client/scripts/features/info-layers/panel-actions.js?v=20260422j"></script>
-<script src="src/client/scripts/features/info-layers/render-engine.js?v=20260422k"></script>
+<script src="src/client/scripts/features/info-layers/render-engine.js?v=20260422m"></script>
 <script src="src/client/scripts/features/custom-portrait/custom-portrait.js"></script>
 <script src="src/client/scripts/features/presets/preset-apply.js"></script>
 <script src="src/client/scripts/render/section-panel.js"></script>
@@ -243,12 +253,12 @@
 <script src="src/client/scripts/render/portrait-renderer.js"></script>
 <script src="src/client/scripts/render/nameplate-renderer.js"></script>
 <script src="src/client/scripts/render/image-loader.js"></script>
-<script src="src/client/scripts/render/viewport-transform.js"></script>
+<script src="src/client/scripts/render/viewport-transform.js?v=20260422c"></script>
 <script src="src/client/scripts/export/shared.js?v=20260422i"></script>
 <script src="src/client/scripts/export/png-export.js?v=20260422i"></script>
 <script src="src/client/scripts/export/psd-export.js"></script>
 <script src="src/client/scripts/export/zip-export.js?v=20260422i"></script>
-<script src="src/client/scripts/40-bootstrap.js?v=20260422i"></script>
+<script src="src/client/scripts/40-bootstrap.js?v=20260422k"></script>
 </body>
 </html>
 

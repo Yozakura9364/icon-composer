@@ -106,6 +106,55 @@ function closeSettings() {
   closeSettingsMenu();
 }
 
+const ABOUT_MODAL_CONTENT_PATH = '/src/client/content/about-modal-content.html';
+let aboutModalContentLoaded = false;
+let aboutModalContentLoadPromise = null;
+
+async function ensureAboutModalContentLoaded(forceReload = false) {
+  const container = document.getElementById('aboutModalContent');
+  if (!container) return;
+  if (!forceReload && aboutModalContentLoaded) return;
+  if (aboutModalContentLoadPromise) {
+    await aboutModalContentLoadPromise;
+    return;
+  }
+  aboutModalContentLoadPromise = (async () => {
+    try {
+      const contentUrl = forceReload
+        ? `${appPath(ABOUT_MODAL_CONTENT_PATH)}?_=${Date.now()}`
+        : appPath(ABOUT_MODAL_CONTENT_PATH);
+      const resp = await fetch(contentUrl, { cache: 'no-store' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const html = await resp.text();
+      container.innerHTML = html;
+      aboutModalContentLoaded = true;
+    } catch (e) {
+      container.textContent = '关于内容加载失败，请检查 src/client/content/about-modal-content.html。';
+      console.warn('[about-modal] 加载内容失败:', e);
+    } finally {
+      aboutModalContentLoadPromise = null;
+    }
+  })();
+  await aboutModalContentLoadPromise;
+}
+
+function openAboutModal() {
+  const modal = document.getElementById('aboutModal');
+  if (!modal) return;
+  void ensureAboutModalContentLoaded(true);
+  closeMobileActionMenu();
+  closeSettingsMenu();
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAboutModal() {
+  const modal = document.getElementById('aboutModal');
+  if (!modal || !modal.classList.contains('open')) return;
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
 document.addEventListener('click', event => {
   const mobileList = document.getElementById('mobileActionList');
   const mobileButton = document.getElementById('mobileActionBtn');

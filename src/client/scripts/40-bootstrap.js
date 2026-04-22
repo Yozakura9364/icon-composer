@@ -24,6 +24,11 @@ document.addEventListener('keydown', e => {
     closeSettingsMenu();
     return;
   }
+  const aboutModal = document.getElementById('aboutModal');
+  if (aboutModal && aboutModal.classList.contains('open')) {
+    closeAboutModal();
+    return;
+  }
   if (pendingCustomPick) {
     pendingCustomPick = false;
     updateCustomPortraitUI();

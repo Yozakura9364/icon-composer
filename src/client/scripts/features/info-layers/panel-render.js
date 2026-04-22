@@ -486,7 +486,7 @@ function buildInfoBar48LayerCardHtml(layer, index) {
         ${enableHtml}
         <input class="info-layer-name" value="${escapeHtml(normalized.name)}" onclick="event.stopPropagation()" oninput="updateInfoLayerName(${index}, this.value)" placeholder="图层名称">
         <div class="info-layer-right">
-          <span class="info-layer-kind">48 Bar</span>
+          <span class="info-layer-kind">多选</span>
           <span class="arrow info-layer-arrow">&#9654;</span>
         </div>
       </div>

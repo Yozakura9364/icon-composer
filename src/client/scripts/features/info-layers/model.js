@@ -2,7 +2,7 @@ function createDefaultTextLayerState() {
   return {
     enabled: true,
     text: '',
-    fontFamily: 'Eorzea',
+    fontFamily: 'Adobe Heiti Std',
     bold: false,
     italic: false,
     underline: false,
@@ -373,7 +373,7 @@ async function resolveAdaptiveInfoTextColor(
   return base;
 }
 
-function normalizeTextLayerFontFamily(raw, fallback = 'Eorzea') {
+function normalizeTextLayerFontFamily(raw, fallback = 'Adobe Heiti Std') {
   const source = typeof raw === 'string' ? raw : '';
   const cleaned = source
     .replace(/[\r\n\t]/g, ' ')
@@ -1181,7 +1181,7 @@ function setTextLayerLocalFontsStatus(text) {
 
 function buildTextLayerFontOptionsHtml(layer) {
   const normalized = normalizeTextLayerState(layer);
-  const preferred = normalizeTextLayerFontFamily(normalized.fontFamily, 'Eorzea');
+  const preferred = normalizeTextLayerFontFamily(normalized.fontFamily, 'Adobe Heiti Std');
   const presetFonts = normalizeAndDedupeFontFamilies(TEXT_LAYER_PRESET_FONT_FAMILIES);
   const presetKeys = new Set(presetFonts.map(name => name.toLowerCase()));
   const localFonts = normalizeAndDedupeFontFamilies(textLayerLocalFontFamilies)

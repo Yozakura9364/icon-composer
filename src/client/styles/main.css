@@ -1,32 +1,37 @@
 ﻿@font-face {
-  font-family: 'FFXIV';
-  src:
-    url('/font/FFXIV_Lodestone_SSF.woff') format('woff'),
-    url('/font/FFXIV_Lodestone_SSF.ttf') format('truetype');
-  unicode-range: U+E020-E0DB;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Eorzea';
-  src: url('/font/Eorzea-Regular.otf') format('opentype');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Kugane';
-  src: url('/font/Kugane-Regular.otf') format('opentype');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Norvrandt';
-  src: url('/font/Norvrandt-Regular.otf') format('opentype');
-  font-display: swap;
-}
-@font-face {
   font-family: 'Trump Gothic Pro';
   src:
     url('/font/TrumpGothicPro/TrumpGothicPro.woff2') format('woff2'),
     url('/font/TrumpGothicPro/TrumpGothicPro.woff') format('woff'),
     url('/font/TrumpGothicPro/TrumpGothicPro.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Augmented Neo-Eorzean';
+  src: url('/font/Eorzean/AugmentedNeo-Eorzean-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Augmented Far Eastern Script';
+  src: url('/font/Kugane/AugmentedFarEasternScript-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Augmented Norvrandt';
+  src: url('/font/Norvrandt/AugmentedNorvrandt-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Augmented Postulated Proto-Alphabet';
+  src: url('/font/PostulatedProtoAlphabet/AugmentedPostulatedProto-Alphabet-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
   font-display: swap;
 }
 @font-face {
@@ -131,6 +136,19 @@
   font-weight: 800;
   font-display: swap;
 }
+@font-face {
+  font-family: 'Adobe Heiti Std';
+  src:
+    local('Adobe Heiti Std'),
+    local('AdobeHeitiStd-Regular'),
+    local('Adobe Heiti Std R'),
+    url('/font/Adobe 黑体 Std R.otf') format('opentype'),
+    url('/font/AdobeHeitiStd-Regular.otf') format('opentype'),
+    url('/font/AdobeHeitiStd-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 :root {
   --bg: #0f1117;
   --panel: #1a1d27;
@@ -174,10 +192,6 @@ html, body {
   height: 100%; overflow: hidden;
 }
 body { display: flex; flex-direction: column; }
-.eorzea, i.eorzea { font-family: 'Eorzea', sans-serif; font-style: normal; }
-.kugane, i.kugane { font-family: 'Kugane', sans-serif; font-style: normal; }
-.norvrandt, i.norvrandt { font-family: 'Norvrandt', sans-serif; font-style: normal; }
-.xiv, i.xiv { font-family: 'FFXIV', sans-serif; font-style: normal; }
 
 /* === 头部 === */
 header {
@@ -945,6 +959,71 @@ canvas { image-rendering: auto; }
 #customCropCanvas.dragging { cursor: grabbing; }
 .crop-modal-toolbar { margin-top: 12px; }
 .crop-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+
+.about-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.72);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.about-modal-backdrop.open { display: flex; }
+.about-modal-panel {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 14px 12px;
+}
+.about-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.about-modal-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.about-modal-close {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.about-modal-close:hover { background: var(--card2); }
+.about-modal-content {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  white-space: normal;
+}
+.about-modal-content p {
+  margin: 0 0 8px;
+}
+.about-modal-content p:last-child {
+  margin-bottom: 0;
+}
+.about-modal-content a {
+  color: var(--accent2);
+  text-decoration: none;
+}
+.about-modal-content a:hover { text-decoration: underline; }
 
 .avatar-pick-wrap {
   cursor: pointer;

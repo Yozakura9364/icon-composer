@@ -1,5 +1,5 @@
 function escapeFontFamilyForCanvas(raw) {
-  return normalizeTextLayerFontFamily(raw, 'Eorzea')
+  return normalizeTextLayerFontFamily(raw, 'Adobe Heiti Std')
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"');
 }
