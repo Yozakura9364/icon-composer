@@ -5,6 +5,7 @@ setupCustomCropCanvasListeners();
 setupInfoLayerCanvasHoverHandlers();
 applyHeaderIconPaths();
 applyThemeFromStorage();
+setupConfigPanelResizer();
 init();
 
 document.addEventListener('keydown', e => {

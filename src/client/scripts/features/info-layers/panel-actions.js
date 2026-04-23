@@ -333,27 +333,6 @@ function updateInfoSpecialLayerField(index, key, value) {
   queueInfoLayerRender(false);
 }
 
-function updateInfoSpecialLayerColorChannel(index, key, channel, value) {
-  const i = Number(index);
-  if (!Number.isInteger(i) || i < 0 || i >= infoLayers.length) return;
-  const layer = infoLayers[i];
-  if (!layer || layer.type !== 'special') return;
-  const allowedKey = key === 'maskDarkColor' || key === 'maskLightColor' ? key : '';
-  const allowedChannel = channel === 'r' || channel === 'g' || channel === 'b' ? channel : '';
-  if (!allowedKey || !allowedChannel) return;
-  const rgb = hexColorToRgbObject(layer[allowedKey], allowedKey === 'maskDarkColor' ? '#5f3c22' : '#f6d9a7');
-  rgb[allowedChannel] = Math.round(clampNumberInRange(value, 0, 255, rgb[allowedChannel]));
-  infoLayers[i] = normalizeInfoLayer(
-    {
-      ...layer,
-      [allowedKey]: rgbObjectToHexColor(rgb, layer[allowedKey]),
-    },
-    'special'
-  );
-  renderInfoLayersPanel();
-  queueInfoLayerRender(true);
-}
-
 function updateInfoFixedLayerField(index, key, value) {
   const i = Number(index);
   if (!Number.isInteger(i) || i < 0 || i >= infoLayers.length) return;

@@ -97,27 +97,57 @@ function buildSmallCapsRuns(text) {
 }
 
 const textLayerFontLoadInflight = new Map();
+const textLayerFontLoaded = new Map();
+const TEXT_LAYER_FONT_LOAD_CACHE_MAX = 128;
+const TEXT_LAYER_FONT_LOAD_PROBE_LATIN = 'BESbswy0123456789';
+const TEXT_LAYER_FONT_LOAD_PROBE_CJK = '汉字测试';
+
+function buildTextLayerFontLoadDescriptor(layer) {
+  const normalized = normalizeTextLayerState(layer);
+  const variant = resolveTextLayerFontVariantMeta(normalized.fontFamily, normalized.fontVariant);
+  const weight = Number.isFinite(Number(variant.weight)) ? Math.round(Number(variant.weight)) : 400;
+  const style = normalized.italic ? 'italic' : 'normal';
+  const family = normalizeTextLayerFontFamily(normalized.fontFamily, 'Adobe Heiti Std');
+  const escapedFamily = escapeFontFamilyForCanvas(family);
+  const firstLine = textLayerLines(normalized.text).find(line => line.trim()) || '';
+  const firstSample = String(firstLine).trim().slice(0, 32);
+  const samples = [TEXT_LAYER_FONT_LOAD_PROBE_LATIN, TEXT_LAYER_FONT_LOAD_PROBE_CJK];
+  if (firstSample) samples.push(firstSample);
+  return {
+    key: `${style}|${weight}|${family.toLowerCase()}`,
+    spec: `${style === 'italic' ? 'italic ' : ''}${weight} 16px "${escapedFamily}"`,
+    samples: Array.from(new Set(samples)),
+  };
+}
+
+function rememberTextLayerFontLoaded(key) {
+  if (textLayerFontLoaded.has(key)) {
+    textLayerFontLoaded.delete(key);
+  }
+  textLayerFontLoaded.set(key, 1);
+  if (textLayerFontLoaded.size <= TEXT_LAYER_FONT_LOAD_CACHE_MAX) return;
+  const oldest = textLayerFontLoaded.keys().next();
+  if (!oldest.done) textLayerFontLoaded.delete(oldest.value);
+}
 
 async function ensureTextLayerFontReady(layer) {
   if (!document.fonts || typeof document.fonts.load !== 'function') return;
-  const normalized = normalizeTextLayerState(layer);
-  const sample = textLayerLines(normalized.text).find(line => line.trim()) || 'A';
-  const fontSpec = buildTextLayerFontSpec(normalized);
-  try {
-    if (typeof document.fonts.check === 'function' && document.fonts.check(fontSpec, sample)) {
-      return;
-    }
-  } catch (_) {
-    // ignore check failures and continue with load
-  }
-  const inflightKey = fontSpec;
+  const descriptor = buildTextLayerFontLoadDescriptor(layer);
+  const inflightKey = descriptor.key;
+  if (textLayerFontLoaded.has(inflightKey)) return;
   if (textLayerFontLoadInflight.has(inflightKey)) {
     await textLayerFontLoadInflight.get(inflightKey);
     return;
   }
   const task = (async () => {
     try {
-      await document.fonts.load(fontSpec, sample);
+      // Do not short-circuit with document.fonts.check(): it can return true on fallback fonts.
+      await Promise.all(
+        descriptor.samples.map(sample =>
+          document.fonts.load(descriptor.spec, sample).catch(() => null)
+        )
+      );
+      rememberTextLayerFontLoaded(inflightKey);
     } catch (_) {
       // ignore font loading failures and let canvas fallback
     } finally {
@@ -1024,8 +1054,9 @@ async function drawInfoLayers(ctx, rawLayers = infoLayers, options = {}) {
   const opts = options && typeof options === 'object' ? options : {};
   const trackHitRegions = opts.trackHitRegions === true;
   const regions = trackHitRegions ? [] : null;
-  const layers = buildInfoRuntimeLayers(rawLayers);
-  await ensureInfoTextLayerFontsReady(layers);
+  const baseLayers = normalizeInfoLayers(rawLayers);
+  await ensureInfoTextLayerFontsReady(baseLayers);
+  const layers = buildInfoRuntimeLayers(baseLayers);
   for (let idx = 0; idx < layers.length; idx += 1) {
     const layer = layers[idx];
     let drawResult = null;

@@ -8,6 +8,166 @@ async function renderAll() {
   centerView();
 }
 
+const CONFIG_PANEL_WIDTH_STORAGE_KEY = 'iconComposer.configPanelWidthPx.v1';
+const CONFIG_PANEL_DEFAULT_WIDTH_PX = 420;
+const CONFIG_PANEL_MIN_WIDTH_PX = 320;
+
+function isDesktopPanelResizeEnabled() {
+  return window.matchMedia('(min-width: 769px)').matches;
+}
+
+function resolveConfigPanelWidthBounds() {
+  const main = document.querySelector('.main');
+  const mainWidth =
+    main && Number.isFinite(main.clientWidth) && main.clientWidth > 0
+      ? main.clientWidth
+      : window.innerWidth;
+  const minWidth = CONFIG_PANEL_MIN_WIDTH_PX;
+  const maxWidth = Math.max(minWidth, Math.floor(mainWidth * 0.5));
+  return { minWidth, maxWidth };
+}
+
+function clampConfigPanelWidth(widthPx) {
+  const { minWidth, maxWidth } = resolveConfigPanelWidthBounds();
+  const n = Math.round(Number(widthPx));
+  if (!Number.isFinite(n)) {
+    return Math.min(maxWidth, Math.max(minWidth, CONFIG_PANEL_DEFAULT_WIDTH_PX));
+  }
+  return Math.min(maxWidth, Math.max(minWidth, n));
+}
+
+function readSavedConfigPanelWidth() {
+  try {
+    const raw = localStorage.getItem(CONFIG_PANEL_WIDTH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function persistConfigPanelWidth(widthPx) {
+  try {
+    localStorage.setItem(CONFIG_PANEL_WIDTH_STORAGE_KEY, String(Math.round(widthPx)));
+  } catch (_) {
+    // ignore storage failures
+  }
+}
+
+function applyConfigPanelWidth(widthPx, options = {}) {
+  const desktopOnly = options.desktopOnly !== false;
+  if (desktopOnly && !isDesktopPanelResizeEnabled()) return null;
+  const allowHidden = options.allowHidden === true;
+  const rawWidth = Number(widthPx);
+  const clamped =
+    allowHidden && Number.isFinite(rawWidth) && rawWidth <= 0
+      ? 0
+      : clampConfigPanelWidth(widthPx);
+  const main = document.querySelector('.main');
+  if (main) main.classList.toggle('panel-collapsed', clamped <= 0);
+  document.documentElement.style.setProperty('--config-panel-width', `${clamped}px`);
+  if (options.persist === true) persistConfigPanelWidth(clamped);
+  return clamped;
+}
+
+function setupConfigPanelResizer() {
+  const main = document.querySelector('.main');
+  const panel = document.querySelector('.config-panel');
+  const handle = document.getElementById('panelResizeHandle');
+  if (!main || !panel || !handle || handle.dataset.bound === '1') return;
+  handle.dataset.bound = '1';
+
+  const syncPanelWidthFromState = () => {
+    if (!isDesktopPanelResizeEnabled()) {
+      main.classList.remove('resizing');
+      return;
+    }
+    const computed = Number(
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--config-panel-width')
+      )
+    );
+    if (Number.isFinite(computed) && computed >= 0) {
+      applyConfigPanelWidth(computed, { desktopOnly: true, allowHidden: true });
+      return;
+    }
+    const saved = readSavedConfigPanelWidth();
+    applyConfigPanelWidth(
+      Number.isFinite(saved) ? saved : CONFIG_PANEL_DEFAULT_WIDTH_PX,
+      { desktopOnly: true, allowHidden: true }
+    );
+  };
+
+  syncPanelWidthFromState();
+
+  let dragging = false;
+  let activePointerId = null;
+
+  handle.addEventListener('pointerdown', event => {
+    if (!isDesktopPanelResizeEnabled()) return;
+    dragging = true;
+    activePointerId = event.pointerId;
+    main.classList.add('resizing');
+    try {
+      handle.setPointerCapture(activePointerId);
+    } catch (_) {
+      // ignore unsupported pointer capture
+    }
+    event.preventDefault();
+  });
+
+  handle.addEventListener('pointermove', event => {
+    if (!dragging || event.pointerId !== activePointerId) return;
+    const rect = main.getBoundingClientRect();
+    const nextWidth = rect.right - event.clientX;
+    applyConfigPanelWidth(nextWidth, { desktopOnly: true });
+  });
+
+  const finishDrag = event => {
+    if (!dragging || event.pointerId !== activePointerId) return;
+    dragging = false;
+    activePointerId = null;
+    main.classList.remove('resizing');
+    try {
+      handle.releasePointerCapture(event.pointerId);
+    } catch (_) {
+      // ignore unsupported pointer capture release
+    }
+    const computed = Number(
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--config-panel-width')
+      )
+    );
+    if (Number.isFinite(computed) && computed >= 0) persistConfigPanelWidth(computed);
+  };
+
+  handle.addEventListener('pointerup', finishDrag);
+  handle.addEventListener('pointercancel', finishDrag);
+  handle.addEventListener('dblclick', () => {
+    if (!isDesktopPanelResizeEnabled()) return;
+    const computed = Number(
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--config-panel-width')
+      )
+    );
+    const hidden = Number.isFinite(computed) && computed <= 0;
+    if (hidden) {
+      applyConfigPanelWidth(CONFIG_PANEL_DEFAULT_WIDTH_PX, { desktopOnly: true, persist: true });
+      return;
+    }
+    applyConfigPanelWidth(0, { desktopOnly: true, allowHidden: true, persist: true });
+  });
+
+  window.addEventListener(
+    'resize',
+    () => {
+      syncPanelWidthFromState();
+    },
+    { passive: true }
+  );
+}
+
 function renderPortraitSections() {
   const container = document.getElementById('portraitSections');
   container.innerHTML = '';

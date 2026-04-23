@@ -312,6 +312,8 @@ function applyInfoPresetByName(name) {
   renderInfoPresetButtons();
   renderInfoLayersPanel();
   queueInfoLayerRender(true);
+  // Persist preset switch immediately so a fast refresh keeps the new preset.
+  if (typeof persistComposerConfigNow === 'function') persistComposerConfigNow();
 }
 
 function toggleInfoPresetByIndex(index) {

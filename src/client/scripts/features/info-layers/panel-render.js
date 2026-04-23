@@ -95,19 +95,30 @@ function buildInfoTextLayerCardHtml(layer, index) {
             <label>Y</label>
             <input type="number" min="-8192" max="8192" step="1" value="${normalized.y}" oninput="updateInfoTextLayerField(${index}, 'y', this.value)">
           </div>
-          <div class="text-layer-field">
-            <label>颜色</label>
-            <input type="color" value="${normalized.color}" oninput="updateInfoTextLayerField(${index}, 'color', this.value)">
-          </div>
-          <div class="text-layer-field text-layer-full">
-            <label>透明度</label>
-            <div class="text-layer-range-wrap">
-              <input type="range" min="0" max="100" step="1" value="${opacityPercent}" oninput="updateInfoTextLayerField(${index}, 'opacity', Number(this.value) / 100); this.parentElement.querySelector('.val').textContent = this.value + '%';">
-              <span class="val">${opacityPercent}%</span>
+          <div class="text-layer-field text-layer-full text-color-opacity-row">
+            <div class="color-opacity-item color-item">
+              <label>颜色</label>
+              <input
+                type="color"
+                class="color-square-input"
+                value="${normalized.color}"
+                oninput="updateInfoTextLayerField(${index}, 'color', this.value)"
+              >
+            </div>
+            <div class="color-opacity-item opacity-item">
+              <label>透明度（%）</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value="${opacityPercent}"
+                oninput="updateInfoTextLayerField(${index}, 'opacity', Math.max(0, Math.min(100, Number(this.value) || 0)) / 100)"
+              >
             </div>
           </div>
           <div class="text-layer-field text-layer-full text-layer-actions">
-            <button type="button" class="btn btn-ghost" onclick="resetInfoTextLayer(${index})">重置参数</button>
+            <button type="button" class="btn btn-ghost" onclick="resetInfoTextLayer(${index})">重置预设数值</button>
           </div>
         </div>
       </div>
@@ -202,7 +213,7 @@ function buildInfoIconLayerCardHtml(layer, index) {
         </select>
       </div>
       <div class="text-layer-field">
-        <label>目标边长(px)</label>
+        <label>边长（像素）</label>
         <input type="number" min="1" max="8192" step="1" value="${targetSize}" placeholder="留空" oninput="updateInfoIconLayerField(${index}, 'targetSize', this.value)">
       </div>
       <div class="text-layer-field">
@@ -333,8 +344,6 @@ function buildInfoSpecialLayerCardHtml(layer, index) {
   const sizeMode = normalized && normalized.sizeMode === 'fixed' ? 'fixed' : '';
   const targetSize = Number.isFinite(Number(normalized.targetSize)) ? Math.round(Number(normalized.targetSize)) : '';
   const opacityPercent = Math.round(normalized.opacity * 100);
-  const darkRgb = hexColorToRgbObject(normalized.maskDarkColor, '#5f3c22');
-  const lightRgb = hexColorToRgbObject(normalized.maskLightColor, '#f6d9a7');
   const isOpen = isInfoLayerCardOpen(index);
   const bgOpen = isInfoIconSubmenuOpen(index, 'special-bg');
   const maskOpen = isInfoIconSubmenuOpen(index, 'special-mask');
@@ -343,7 +352,7 @@ function buildInfoSpecialLayerCardHtml(layer, index) {
   const enableHtml = buildInfoLayerEnableHtml(normalized, index);
   const maskEnabledByBg = !!selectedBg;
   const maskVisibleHint = maskEnabledByBg
-    ? '已选择背景：可选上色蒙版，黑白区域会分别填充下方两组 RGB 颜色。'
+    ? '已选择背景：可选上色蒙版，黑白区域会分别填充下方两种颜色。'
     : '先选择背景后，才会显示上色蒙版效果。';
   const bgThumbs = bgOpen
     ? buildInfoSpecialMaterialThumbsHtml(index, 'background', bgItems, normalized.bgItemId, {
@@ -369,14 +378,14 @@ function buildInfoSpecialLayerCardHtml(layer, index) {
         ${enableHtml}
         <input class="info-layer-name" value="${escapeHtml(normalized.name)}" onclick="event.stopPropagation()" oninput="updateInfoLayerName(${index}, this.value)" placeholder="图层名称">
         <div class="info-layer-right">
-          <span class="info-layer-kind">寓意</span>
+          <span class="info-layer-kind">队徽</span>
           <span class="arrow info-layer-arrow">&#9654;</span>
         </div>
       </div>
       <div class="info-layer-body">
         <div class="info-submenu ${bgOpen ? 'open' : ''}" data-submenu-key="special-bg">
           <button type="button" class="info-submenu-head" onclick="toggleInfoIconSubmenu(${index}, 'special-bg')">
-            <span>背景素材（可选）</span>
+            <span>盾纹（可选）</span>
             <span class="info-submenu-arrow">▼</span>
           </button>
           <div class="info-submenu-body">
@@ -387,7 +396,7 @@ function buildInfoSpecialLayerCardHtml(layer, index) {
         </div>
         <div class="info-submenu ${maskOpen ? 'open' : ''}" data-submenu-key="special-mask">
           <button type="button" class="info-submenu-head" onclick="toggleInfoIconSubmenu(${index}, 'special-mask')">
-            <span>上色蒙版（可选）</span>
+            <span>背景（可选）</span>
             <span class="info-submenu-arrow">▼</span>
           </button>
           <div class="info-submenu-body">
@@ -395,7 +404,7 @@ function buildInfoSpecialLayerCardHtml(layer, index) {
               <div class="thumb-row">
                 ${maskThumbs}
               </div>
-            ` : '<p class="info-fixed-note">先选择背景后，再选择上色蒙版。</p>'}
+            ` : '<p class="info-fixed-note">先选择盾纹后，再选择背景。</p>'}
             <p class="info-fixed-note">${escapeHtml(maskVisibleHint)}</p>
           </div>
         </div>
@@ -434,36 +443,42 @@ function buildInfoSpecialLayerCardHtml(layer, index) {
                 </select>
               </div>
               <div class="text-layer-field">
-                <label>目标边长(px)</label>
+                <label>边长（像素）</label>
                 <input type="number" min="1" max="8192" step="1" value="${targetSize}" placeholder="留空" oninput="updateInfoSpecialLayerField(${index}, 'targetSize', this.value)">
               </div>
               <div class="text-layer-field">
                 <label>缩放</label>
                 <input type="number" min="${INFO_SPECIAL_SCALE_MIN}" max="${INFO_SPECIAL_SCALE_MAX}" step="0.01" value="${normalized.scale}" oninput="updateInfoSpecialLayerField(${index}, 'scale', this.value)">
               </div>
-              <div class="text-layer-field text-layer-full">
-                <label>蒙版黑色区域颜色</label>
-                <input type="color" value="${normalized.maskDarkColor}" oninput="updateInfoSpecialLayerField(${index}, 'maskDarkColor', this.value)">
-                <div class="info-rgb-row">
-                  <label>R<input type="number" min="0" max="255" step="1" value="${darkRgb.r}" oninput="updateInfoSpecialLayerColorChannel(${index}, 'maskDarkColor', 'r', this.value)"></label>
-                  <label>G<input type="number" min="0" max="255" step="1" value="${darkRgb.g}" oninput="updateInfoSpecialLayerColorChannel(${index}, 'maskDarkColor', 'g', this.value)"></label>
-                  <label>B<input type="number" min="0" max="255" step="1" value="${darkRgb.b}" oninput="updateInfoSpecialLayerColorChannel(${index}, 'maskDarkColor', 'b', this.value)"></label>
+              <div class="text-layer-field text-layer-full special-color-opacity-row">
+                <div class="color-opacity-item color-item">
+                  <label>颜色1</label>
+                  <input
+                    type="color"
+                    class="color-square-input"
+                    value="${normalized.maskDarkColor}"
+                    oninput="updateInfoSpecialLayerField(${index}, 'maskDarkColor', this.value)"
+                  >
                 </div>
-              </div>
-              <div class="text-layer-field text-layer-full">
-                <label>蒙版白色区域颜色</label>
-                <input type="color" value="${normalized.maskLightColor}" oninput="updateInfoSpecialLayerField(${index}, 'maskLightColor', this.value)">
-                <div class="info-rgb-row">
-                  <label>R<input type="number" min="0" max="255" step="1" value="${lightRgb.r}" oninput="updateInfoSpecialLayerColorChannel(${index}, 'maskLightColor', 'r', this.value)"></label>
-                  <label>G<input type="number" min="0" max="255" step="1" value="${lightRgb.g}" oninput="updateInfoSpecialLayerColorChannel(${index}, 'maskLightColor', 'g', this.value)"></label>
-                  <label>B<input type="number" min="0" max="255" step="1" value="${lightRgb.b}" oninput="updateInfoSpecialLayerColorChannel(${index}, 'maskLightColor', 'b', this.value)"></label>
+                <div class="color-opacity-item color-item">
+                  <label>颜色2</label>
+                  <input
+                    type="color"
+                    class="color-square-input"
+                    value="${normalized.maskLightColor}"
+                    oninput="updateInfoSpecialLayerField(${index}, 'maskLightColor', this.value)"
+                  >
                 </div>
-              </div>
-              <div class="text-layer-field text-layer-full">
-                <label>透明度</label>
-                <div class="text-layer-range-wrap">
-                  <input type="range" min="0" max="100" step="1" value="${opacityPercent}" oninput="updateInfoSpecialLayerField(${index}, 'opacity', Number(this.value) / 100); this.parentElement.querySelector('.val').textContent = this.value + '%';">
-                  <span class="val">${opacityPercent}%</span>
+                <div class="color-opacity-item opacity-item">
+                  <label>透明度（%）</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="${opacityPercent}"
+                    oninput="updateInfoSpecialLayerField(${index}, 'opacity', Math.max(0, Math.min(100, Number(this.value) || 0)) / 100)"
+                  >
                 </div>
               </div>
             </div>
@@ -546,7 +561,7 @@ function buildInfoBar48LayerCardHtml(layer, index) {
             </div>
           </div>
           <div class="text-layer-field text-layer-full">
-            <label>48格状态（2行×24列）</label>
+            <label>状态栏选择</label>
             <div class="bar48-grid-wrap">
               <div class="bar48-grid">
                 ${cellsHtml}
@@ -600,6 +615,43 @@ function getInfoLayerListIndicesForCurrentPreset(layers = infoLayers) {
   if (!preset || !Array.isArray(preset.layers) || !preset.layers.length) {
     return src.map((_, index) => index);
   }
+  let panelPresetLayers = preset.layers;
+  const presetName = normalizeInfoPresetName(preset.name);
+  if (presetName === '\u56fd\u670d' || presetName === '\u56fd\u9645\u670d') {
+    const findLayerIndex = (targetId) => panelPresetLayers.findIndex(
+      layer => String(layer && layer.id != null ? layer.id : '').trim() === targetId
+    );
+    const moveLayerAfter = (layerId, anchorId) => {
+      const layerIdx = findLayerIndex(layerId);
+      const anchorIdx = findLayerIndex(anchorId);
+      if (layerIdx < 0 || anchorIdx < 0 || layerIdx === anchorIdx + 1) return;
+      const reordered = panelPresetLayers.slice();
+      const [movedLayer] = reordered.splice(layerIdx, 1);
+      if (!movedLayer) return;
+      const anchorIdxAfterRemove = reordered.findIndex(
+        layer => String(layer && layer.id != null ? layer.id : '').trim() === anchorId
+      );
+      if (anchorIdxAfterRemove < 0) return;
+      reordered.splice(anchorIdxAfterRemove + 1, 0, movedLayer);
+      panelPresetLayers = reordered;
+    };
+    const moveLayerBefore = (layerId, anchorId) => {
+      const layerIdx = findLayerIndex(layerId);
+      const anchorIdx = findLayerIndex(anchorId);
+      if (layerIdx < 0 || anchorIdx < 0 || layerIdx === anchorIdx - 1) return;
+      const reordered = panelPresetLayers.slice();
+      const [movedLayer] = reordered.splice(layerIdx, 1);
+      if (!movedLayer) return;
+      const anchorIdxAfterRemove = reordered.findIndex(
+        layer => String(layer && layer.id != null ? layer.id : '').trim() === anchorId
+      );
+      if (anchorIdxAfterRemove < 0) return;
+      reordered.splice(anchorIdxAfterRemove, 0, movedLayer);
+      panelPresetLayers = reordered;
+    };
+    moveLayerAfter('icon-2', 'bar-1');
+    moveLayerBefore('fixed-1', 'fixed-2');
+  }
   const indexById = new Map();
   for (let i = 0; i < src.length; i += 1) {
     const layer = src[i];
@@ -609,7 +661,7 @@ function getInfoLayerListIndicesForCurrentPreset(layers = infoLayers) {
   }
   const out = [];
   const seen = new Set();
-  for (const presetLayer of preset.layers) {
+  for (const presetLayer of panelPresetLayers) {
     const id = String(presetLayer && presetLayer.id != null ? presetLayer.id : '').trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
