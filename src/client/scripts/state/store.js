@@ -35,6 +35,18 @@ let infoLayerHitRegions = [];
 let hoveredInfoLayerIndex = -1;
 const INIT_API_RETRIES = 2;
 const INIT_API_RETRY_DELAY_MS = 220;
+const INIT_LOADING_STATUS_DEFAULT = '正在扫描素材文件…';
+
+function setPrimaryLoadingStatus(text) {
+  const el = document.getElementById('loadingStatusText');
+  if (!el) return;
+  el.textContent = String(text || INIT_LOADING_STATUS_DEFAULT);
+}
+
+async function setPrimaryLoadingStatusAndYield(text) {
+  setPrimaryLoadingStatus(text);
+  await new Promise(resolve => requestAnimationFrame(() => resolve()));
+}
 
 function sleepMs(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -108,11 +120,21 @@ async function fetchJsonWithRetry(endpoint, options = {}) {
 // 初始化
 // ============================================================
 async function init() {
+  let initStage = '';
   try {
-    const [filesPayload, rawPresets] = await Promise.all([
-      fetchJsonWithRetry('/api/files', { retries: INIT_API_RETRIES }),
-      fetchJsonWithRetry('/api/presets', { retries: INIT_API_RETRIES }),
-    ]);
+    initStage = '加载预设中';
+    await setPrimaryLoadingStatusAndYield('加载预设中…');
+    const presetsPromise = fetchJsonWithRetry('/api/presets', { retries: INIT_API_RETRIES });
+
+    initStage = '加载肖像中';
+    await setPrimaryLoadingStatusAndYield('加载肖像中…');
+    const filesPromise = fetchJsonWithRetry('/api/files', { retries: INIT_API_RETRIES });
+
+    const rawPresets = await presetsPromise;
+
+    initStage = '加载铭牌中';
+    await setPrimaryLoadingStatusAndYield('加载铭牌中…');
+    const filesPayload = await filesPromise;
     if (filesPayload._meta && typeof filesPayload._meta.imgBase === 'string') {
       ICON_IMG_BASE = filesPayload._meta.imgBase;
     } else {
@@ -138,12 +160,15 @@ async function init() {
     ) {
       fileData.nameplate[INFO_ICON_LIMITED_CATEGORY] = fileData.nameplate[INFO_ICON_LEGACY_CATEGORY];
     }
+    initStage = '加载活动图标中';
+    await setPrimaryLoadingStatusAndYield('加载活动图标中…');
     await ensureInfoActivityIconCategoryLoaded();
     presets = {
       banner: Array.isArray(rawPresets.banner) ? rawPresets.banner : [],
       charcard: Array.isArray(rawPresets.charcard) ? rawPresets.charcard : [],
     };
   } catch(e) {
+    setPrimaryLoadingStatus(initStage ? `${initStage}失败` : '初始化失败');
     applyThemeFromStorage();
     alert(
       '初始化数据加载失败，请稍后重试。\n\n' +
@@ -154,6 +179,7 @@ async function init() {
     return;
   }
   [...PORTRAIT_CATS, ...NAMEPLATE_CATS, '肖像外框'].forEach(c => { selected[c] = null; });
+  await setPrimaryLoadingStatusAndYield('初始化界面中…');
   renderPresetSelects();
   setupCustomPortraitFileInput();
   updateCustomPortraitUI();
@@ -162,6 +188,7 @@ async function init() {
   const pc = document.getElementById('presetChar');
   if (pb) pb.disabled = false;
   if (pc) pc.disabled = false;
+  await setPrimaryLoadingStatusAndYield('渲染预览中…');
   await renderAll();
   let hasStoredConfigBeforeRestore = false;
   try {
@@ -169,13 +196,16 @@ async function init() {
   } catch (_) {
     hasStoredConfigBeforeRestore = false;
   }
+  await setPrimaryLoadingStatusAndYield('恢复预设中…');
   await tryRestoreComposerConfigFromLocalStorage();
   migratePhantomTideInfoPresetDefaultsOnce();
   initializeInfoPresetForFirstVisitOnly(hasStoredConfigBeforeRestore);
+  await setPrimaryLoadingStatusAndYield('加载字体中…');
   await Promise.all([
     ensureNameplateBaseFontColorMapLoaded(),
     ensureNameplateHeaderFontColorMapLoaded(),
   ]);
+  setPrimaryLoadingStatus('加载完成');
   document.getElementById('loadingOverlay').classList.add('hidden');
 }
 

@@ -172,6 +172,35 @@ async function ensureInfoTextLayerFontsReady(layers) {
   await Promise.all(tasks);
 }
 
+async function ensureInfoFollowTextLayerFontsReady(layers) {
+  if (!Array.isArray(layers) || !layers.length) return;
+  const normalizedLayers = normalizeInfoLayers(layers);
+  const textById = new Map();
+  for (const layer of normalizedLayers) {
+    if (!layer || layer.type !== 'text') continue;
+    const normalized = normalizeInfoLayer(layer, 'text');
+    if (!normalized.id) continue;
+    textById.set(normalized.id, normalized);
+  }
+  if (!textById.size) return;
+
+  const tasks = [];
+  const pushIfRenderable = layer => {
+    if (!layer || !hasRenderableTextLayer(layer)) return;
+    tasks.push(ensureTextLayerFontReady(layer));
+  };
+
+  for (const layer of textById.values()) {
+    const followLayerId = normalizeInfoTextFollowLayerId(layer.followLayerId);
+    if (!followLayerId) continue;
+    pushIfRenderable(layer);
+    pushIfRenderable(textById.get(followLayerId));
+  }
+
+  if (!tasks.length) return;
+  await Promise.all(tasks);
+}
+
 const TEXT_LAYER_RENDER_EFFECT_STYLES = {
   [TEXT_RENDER_EFFECT_SHADOW_GRAY]: {
     shadowOffsetX: 0,
@@ -1055,7 +1084,7 @@ async function drawInfoLayers(ctx, rawLayers = infoLayers, options = {}) {
   const trackHitRegions = opts.trackHitRegions === true;
   const regions = trackHitRegions ? [] : null;
   const baseLayers = normalizeInfoLayers(rawLayers);
-  await ensureInfoTextLayerFontsReady(baseLayers);
+  await ensureInfoFollowTextLayerFontsReady(baseLayers);
   const layers = buildInfoRuntimeLayers(baseLayers);
   for (let idx = 0; idx < layers.length; idx += 1) {
     const layer = layers[idx];

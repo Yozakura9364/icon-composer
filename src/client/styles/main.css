@@ -1367,6 +1367,7 @@ canvas { image-rendering: auto; }
   }
   .config-panel {
     width: 100%;
+    max-width: 100%;
     min-width: 0;
     border-left: none;
     border-top: 1px solid var(--border);
@@ -1380,6 +1381,11 @@ canvas { image-rendering: auto; }
     z-index: 2;
     background: var(--panel);
     padding: 0 8px;
+  }
+  .panel-tab {
+    padding: 12px 8px;
+    font-size: 16px;
+    font-weight: 700;
   }
   .panel-scroll {
     flex: 1;
@@ -1402,7 +1408,9 @@ canvas { image-rendering: auto; }
     width: 100%;
   }
   .thumb-row {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
     overflow-x: visible;
     overflow-y: visible;
     padding-bottom: 0;
@@ -1411,25 +1419,78 @@ canvas { image-rendering: auto; }
   .thumb-row::-webkit-scrollbar { height: 7px; }
   .thumb-row::-webkit-scrollbar-thumb { background: rgba(100,100,100,0.3); border-radius: 4px; }
   .thumb-item {
-    width: 44px;
-    height: 44px;
+    width: auto;
+    height: auto;
+    min-height: 112px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
   }
-  .group-title { margin: 8px 0 6px; }
+  .thumb-item img {
+    width: 100%;
+    height: 72px;
+    object-fit: contain;
+    image-rendering: auto;
+    padding: 6px;
+    background: var(--thumb-bg);
+  }
+  .thumb-item .tnum {
+    position: static;
+    font-size: 14px;
+    line-height: 1.4;
+    font-weight: 600;
+    color: var(--text);
+    background: transparent;
+    text-align: center;
+    padding: 6px 6px 8px;
+    pointer-events: none;
+    min-height: 3.2em;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    word-break: break-word;
+  }
+  .thumb-item .tnum:only-child {
+    min-height: 112px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-line-clamp: unset;
+  }
+  .group-title {
+    margin: 12px 0 8px;
+    font-size: 14px;
+    letter-spacing: 0.3px;
+    text-transform: none;
+  }
   .layer-section {
     margin-bottom: 8px;
     overflow: visible;
   }
   .section-header {
     padding: 10px;
+    font-size: 15px;
+    font-weight: 600;
     position: sticky;
     top: 0;
     z-index: 3;
     background: var(--card2);
   }
+  .arrow {
+    font-size: 12px;
+  }
   .section-right {
     max-width: 56%;
   }
   .selected-layer-tag {
+    font-size: 13px;
+    padding: 3px 8px;
+    border-radius: 6px;
     max-width: 100%;
   }
   .custom-upload-box { margin-bottom: 10px; }
