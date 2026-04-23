@@ -1,138 +1,138 @@
 ﻿@font-face {
   font-family: 'Trump Gothic Pro';
   src:
-    url('/font/TrumpGothicPro/TrumpGothicPro.woff2') format('woff2'),
-    url('/font/TrumpGothicPro/TrumpGothicPro.woff') format('woff'),
-    url('/font/TrumpGothicPro/TrumpGothicPro.ttf') format('truetype');
+    url('../../../font/TrumpGothicPro/TrumpGothicPro.woff2') format('woff2'),
+    url('../../../font/TrumpGothicPro/TrumpGothicPro.woff') format('woff'),
+    url('../../../font/TrumpGothicPro/TrumpGothicPro.ttf') format('truetype');
   font-display: swap;
 }
 @font-face {
   font-family: 'Augmented Neo-Eorzean';
-  src: url('/font/Eorzean/AugmentedNeo-Eorzean-Regular.woff2') format('woff2');
+  src: url('../../../font/Eorzean/AugmentedNeo-Eorzean-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Augmented Far Eastern Script';
-  src: url('/font/Kugane/AugmentedFarEasternScript-Regular.woff2') format('woff2');
+  src: url('../../../font/Kugane/AugmentedFarEasternScript-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Augmented Norvrandt';
-  src: url('/font/Norvrandt/AugmentedNorvrandt-Regular.woff2') format('woff2');
+  src: url('../../../font/Norvrandt/AugmentedNorvrandt-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Augmented Postulated Proto-Alphabet';
-  src: url('/font/PostulatedProtoAlphabet/AugmentedPostulatedProto-Alphabet-Regular.woff2') format('woff2');
+  src: url('../../../font/PostulatedProtoAlphabet/AugmentedPostulatedProto-Alphabet-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Jupiter Pro';
-  src: url('/font/Jupiter-Pro.ttf?v=20260422a') format('truetype');
+  src: url('../../../font/Jupiter-Pro-20260423.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Jupiter Pro';
-  src: url('/font/Jupiter-Pro-Bold.ttf?v=20260422a') format('truetype');
+  src: url('../../../font/Jupiter-Pro-Bold-20260423.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Eofont SP';
-  src: url('/font/Eofont SP.otf') format('opentype');
+  src: url('../../../font/Eofont SP.otf') format('opentype');
   font-display: swap;
 }
 @font-face {
   font-family: 'Miedinger';
-  src: url('/font/MiedingerMediumW00-Regular.ttf') format('truetype');
+  src: url('../../../font/MiedingerMediumW00-Regular.ttf') format('truetype');
   font-display: swap;
 }
 @font-face {
   font-family: 'HarmonyOS Sans SC';
-  src: url('/font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Thin.ttf') format('truetype');
+  src: url('../../../font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Thin.ttf') format('truetype');
   font-weight: 100;
   font-display: swap;
 }
 @font-face {
   font-family: 'HarmonyOS Sans SC';
-  src: url('/font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Light.ttf') format('truetype');
+  src: url('../../../font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Light.ttf') format('truetype');
   font-weight: 300;
   font-display: swap;
 }
 @font-face {
   font-family: 'HarmonyOS Sans SC';
-  src: url('/font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Regular.ttf') format('truetype');
+  src: url('../../../font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Regular.ttf') format('truetype');
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'HarmonyOS Sans SC';
-  src: url('/font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Medium.ttf') format('truetype');
+  src: url('../../../font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Medium.ttf') format('truetype');
   font-weight: 500;
   font-display: swap;
 }
 @font-face {
   font-family: 'HarmonyOS Sans SC';
-  src: url('/font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Bold.ttf') format('truetype');
+  src: url('../../../font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Bold.ttf') format('truetype');
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'HarmonyOS Sans SC';
-  src: url('/font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Black.ttf') format('truetype');
+  src: url('../../../font/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Black.ttf') format('truetype');
   font-weight: 900;
   font-display: swap;
 }
 @font-face {
   font-family: 'AXIS';
-  src: url('/font/AXIS/Axis Std-ultralight.otf') format('opentype');
+  src: url('../../../font/AXIS/Axis Std-ultralight.otf') format('opentype');
   font-weight: 100;
   font-display: swap;
 }
 @font-face {
   font-family: 'AXIS';
-  src: url('/font/AXIS/Axis Std-extralight.otf') format('opentype');
+  src: url('../../../font/AXIS/Axis Std-extralight.otf') format('opentype');
   font-weight: 200;
   font-display: swap;
 }
 @font-face {
   font-family: 'AXIS';
-  src: url('/font/AXIS/Axis Std-light.otf') format('opentype');
+  src: url('../../../font/AXIS/Axis Std-light.otf') format('opentype');
   font-weight: 300;
   font-display: swap;
 }
 @font-face {
   font-family: 'AXIS';
-  src: url('/font/AXIS/Axis Std-regular.otf') format('opentype');
+  src: url('../../../font/AXIS/Axis Std-regular.otf') format('opentype');
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'AXIS';
-  src: url('/font/AXIS/Axis Std-medium.otf') format('opentype');
+  src: url('../../../font/AXIS/Axis Std-medium.otf') format('opentype');
   font-weight: 500;
   font-display: swap;
 }
 @font-face {
   font-family: 'AXIS';
-  src: url('/font/AXIS/Axis Std-bold.otf') format('opentype');
+  src: url('../../../font/AXIS/Axis Std-bold.otf') format('opentype');
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'AXIS';
-  src: url('/font/AXIS/Axis Std-heavy.otf') format('opentype');
+  src: url('../../../font/AXIS/Axis Std-heavy.otf') format('opentype');
   font-weight: 800;
   font-display: swap;
 }
@@ -142,9 +142,9 @@
     local('Adobe Heiti Std'),
     local('AdobeHeitiStd-Regular'),
     local('Adobe Heiti Std R'),
-    url('/font/Adobe 黑体 Std R.otf') format('opentype'),
-    url('/font/AdobeHeitiStd-Regular.otf') format('opentype'),
-    url('/font/AdobeHeitiStd-Regular.ttf') format('truetype');
+    url('../../../font/Adobe 黑体 Std R.otf') format('opentype'),
+    url('../../../font/AdobeHeitiStd-Regular.otf') format('opentype'),
+    url('../../../font/AdobeHeitiStd-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -949,6 +949,7 @@ canvas { image-rendering: auto; }
   display: block;
   margin: 0 auto;
   max-width: min(92vw, 400px);
+  max-height: min(74dvh, 656px);
   width: auto;
   height: auto;
   border-radius: 8px;
@@ -1067,6 +1068,24 @@ canvas { image-rendering: auto; }
 #customPortraitAvatarGlyph { font-size: 26px; color: var(--text-dim); line-height: 1; user-select: none; }
 
 @media (max-width: 768px) {
+  .crop-modal-backdrop {
+    padding: 10px;
+  }
+  .crop-modal-panel {
+    max-width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+    padding: 12px;
+  }
+  #customCropCanvas {
+    max-width: min(86vw, 320px);
+    max-height: max(260px, calc(100dvh - 330px));
+  }
+  .crop-modal-actions {
+    gap: 8px;
+  }
+  .crop-modal-actions .btn {
+    flex: 1;
+  }
   .hide-on-mobile {
     display: none !important;
   }
@@ -1181,3 +1200,4 @@ canvas { image-rendering: auto; }
   color: var(--text) !important;
   border-color: var(--border) !important;
 }
+

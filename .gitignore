@@ -13,6 +13,7 @@ Thumbs.db
 *.local
 
 # 测试/临时文件
+tmp_*.err
 test*.psd
 test*.jsx
 test*.js

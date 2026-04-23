@@ -1,10 +1,17 @@
 const LAYER_LOADING_OVERLAY_DELAY_MS = 420;
 
+function isPrimaryLoadingOverlayVisible() {
+  const el = document.getElementById('loadingOverlay');
+  return !!el && !el.classList.contains('hidden');
+}
+
 function scheduleLayerLoadingOverlay() {
   if (layerLoadingShowTimer) return;
+  // 首屏初始化阶段只保留 loadingOverlay，避免双遮罩闪烁。
+  if (isPrimaryLoadingOverlayVisible()) return;
   layerLoadingShowTimer = setTimeout(() => {
     layerLoadingShowTimer = null;
-    if (layerRenderDepth > 0) {
+    if (layerRenderDepth > 0 && !isPrimaryLoadingOverlayVisible()) {
       const el = document.getElementById('layerLoadingOverlay');
       if (el) {
         el.classList.add('visible');

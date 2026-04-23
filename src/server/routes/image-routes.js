@@ -26,8 +26,29 @@ function pathUnderIconRoot(relUrlPath, iconRoot, relUiIcon) {
   return full;
 }
 
+function relPathInsideProjectUi(raw) {
+  let s = String(raw || '')
+    .trim()
+    .replace(/^[/\\]+/, '')
+    .replace(/\\/g, '/');
+  if (!s || s.includes('..')) return null;
+  if (!/^ui\//i.test(s) || /^ui\/icon\//i.test(s)) return null;
+  const rel = s.slice('ui/'.length);
+  if (!rel || rel.includes('..')) return null;
+  return rel.replace(/\//g, path.sep);
+}
+
+function pathUnderProjectUiRoot(relUrlPath, projectRoot) {
+  const rel = relPathInsideProjectUi(relUrlPath);
+  if (!rel) return null;
+  const uiRoot = path.resolve(path.join(projectRoot, 'ui'));
+  const full = path.resolve(path.join(uiRoot, rel));
+  if (full !== uiRoot && !full.startsWith(uiRoot + path.sep)) return null;
+  return full;
+}
+
 function handleImageRoute(req, res, pathname, ctx) {
-  const { metrics, iconRoot, relUiIcon, mime, cacheImg } = ctx;
+  const { metrics, iconRoot, relUiIcon, projectRoot, mime, cacheImg } = ctx;
 
   if (pathname.startsWith('/img/')) {
     let relUrl = pathname.slice('/img/'.length).replace(/\\/g, '/');
@@ -36,15 +57,11 @@ function handleImageRoute(req, res, pathname, ctx) {
     } catch (_) {
       /* keep raw */
     }
-    const relPath = relPathInsideIconMaterials(relUrl, relUiIcon);
-    if (!relPath) {
-      metrics.img404 += 1;
-      res.writeHead(404, { 'Cache-Control': 'no-store' });
-      res.end('Not Found');
-      return true;
+    let filePath = pathUnderIconRoot(relUrl, iconRoot, relUiIcon);
+    if (!filePath) {
+      filePath = pathUnderProjectUiRoot(relUrl, projectRoot);
     }
-    const filePath = path.join(iconRoot, relPath);
-    if (fs.existsSync(filePath)) {
+    if (filePath && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
       metrics.imgHits += 1;
       const ext = path.extname(filePath).toLowerCase();
       res.writeHead(200, {

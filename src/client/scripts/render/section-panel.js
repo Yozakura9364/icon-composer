@@ -74,34 +74,18 @@ function updateSelectedLayerLabel(cat) {
   el.classList.toggle('empty', !selected[cat]);
 }
 
-function buildSection(cat, files) {
+function renderSectionThumbs(cat, row, files) {
+  if (!row) return;
   const sel = selected[cat];
   const displayFiles = sortFilesForSection(cat, files);
-  const selectedName = selectedLabelForCategory(cat);
-  const selectedNameEscaped = escapeHtml(selectedName);
+  if (displayFiles.length === 0) {
+    row.innerHTML = '<div class="no-imgs">暂无素材</div>';
+    row.dataset.loaded = '1';
+    return;
+  }
 
-  const section = document.createElement('div');
-  section.className = 'layer-section';
-  section.id = 'sec-' + cat;
-  section.innerHTML = `
-    <div class="section-header" onclick="toggleSection('${cat}')">
-      <div class="sname">
-        <div class="check-dot ${sel ? 'checked' : ''}" id="chk-${cat}"></div>
-        <span>${cat}</span>
-      </div>
-      <div class="section-right">
-        <span class="selected-layer-tag ${sel ? '' : 'empty'}" id="selname-${cat}" title="${selectedNameEscaped}">${selectedNameEscaped}</span>
-        <span class="arrow">&#9654;</span>
-      </div>
-    </div>
-    <div class="section-body">
-      <div class="thumb-row" id="row-${cat}">
-        ${displayFiles.length === 0 ? '<div class="no-imgs">暂无素材</div>' : ''}
-      </div>
-    </div>
-  `;
-
-  const row = section.querySelector(`[id="row-${cat}"]`);
+  row.innerHTML = '';
+  const frag = document.createDocumentFragment();
   displayFiles.forEach(item => {
     const thumb = document.createElement('div');
     thumb.className = 'thumb-item' + (sel && sel.id === item.id ? ' selected' : '');
@@ -133,8 +117,40 @@ function buildSection(cat, files) {
     thumb.appendChild(img);
     thumb.appendChild(tnum);
     thumb.onclick = () => pickItem(cat, item);
-    row.appendChild(thumb);
+    frag.appendChild(thumb);
   });
+  row.appendChild(frag);
+  row.dataset.loaded = '1';
+}
+
+function buildSection(cat, files) {
+  const hasFiles = Array.isArray(files) && files.length > 0;
+  const sel = selected[cat];
+  const selectedName = selectedLabelForCategory(cat);
+  const selectedNameEscaped = escapeHtml(selectedName);
+
+  const section = document.createElement('div');
+  section.className = 'layer-section';
+  section.id = 'sec-' + cat;
+  section.innerHTML = `
+    <div class="section-header" onclick="toggleSection('${cat}')">
+      <div class="sname">
+        <div class="check-dot ${sel ? 'checked' : ''}" id="chk-${cat}"></div>
+        <span>${cat}</span>
+      </div>
+      <div class="section-right">
+        <span class="selected-layer-tag ${sel ? '' : 'empty'}" id="selname-${cat}" title="${selectedNameEscaped}">${selectedNameEscaped}</span>
+        <span class="arrow">&#9654;</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="thumb-row" id="row-${cat}">
+        ${hasFiles ? '<div class="no-imgs">展开后加载缩略图</div>' : '<div class="no-imgs">暂无素材</div>'}
+      </div>
+    </div>
+  `;
+  const row = section.querySelector(`[id="row-${cat}"]`);
+  if (row) row.dataset.loaded = hasFiles ? '0' : '1';
   return section;
 }
 
@@ -150,6 +166,10 @@ function toggleSection(cat) {
   el.classList.toggle('open');
   if (!willOpen) return;
   const files = filesForCategory(cat);
+  const row = document.getElementById('row-' + cat);
+  if (row && row.dataset.loaded !== '1') {
+    renderSectionThumbs(cat, row, files);
+  }
   const n = Math.min(28, files.length);
   if (n === 0) return;
   const paths = files.slice(0, n).map(f => f.path);

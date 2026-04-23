@@ -247,20 +247,67 @@ function parseCharaCardHeaderTopFontColorMap(csvText) {
   return parseImageFontColorMap(csvText, 1, 3);
 }
 
+const INFO_TEXT_COLOR_CSV_FETCH_RETRIES = 2;
+const INFO_TEXT_COLOR_CSV_RETRY_DELAY_MS = 160;
+const INFO_TEXT_COLOR_CSV_COOLDOWN_MS = 15000;
+let nameplateBaseFontColorRetryAt = 0;
+let nameplateHeaderFontColorRetryAt = 0;
+
+function sleepMs(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function appendNoCacheQuery(path, token) {
+  const src = String(path || '');
+  if (!src) return src;
+  return src.includes('?') ? `${src}&_=${token}` : `${src}?_=${token}`;
+}
+
+async function fetchCsvTextWithRetry(csvPath, label) {
+  let lastError = null;
+  for (let attempt = 0; attempt < INFO_TEXT_COLOR_CSV_FETCH_RETRIES; attempt += 1) {
+    try {
+      const url = appPath(appendNoCacheQuery(csvPath, `${Date.now()}_${attempt}`));
+      const resp = await fetch(url, { cache: 'no-store' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const csvText = await resp.text();
+      if (!String(csvText || '').trim()) {
+        throw new Error('empty response body');
+      }
+      return csvText;
+    } catch (e) {
+      lastError = e;
+      if (attempt + 1 < INFO_TEXT_COLOR_CSV_FETCH_RETRIES) {
+        await sleepMs(INFO_TEXT_COLOR_CSV_RETRY_DELAY_MS * (attempt + 1));
+      }
+    }
+  }
+  throw new Error(`${label} load failed: ${lastError && lastError.message ? lastError.message : lastError}`);
+}
+
 async function ensureNameplateBaseFontColorMapLoaded() {
   if (nameplateBaseFontColorByImageId) return nameplateBaseFontColorByImageId;
+  if (Date.now() < nameplateBaseFontColorRetryAt) return new Map();
   if (!nameplateBaseFontColorLoadPromise) {
     nameplateBaseFontColorLoadPromise = (async () => {
       try {
-        const resp = await fetch(appPath(CHARA_CARD_BASE_CSV_PATH));
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const csvText = await resp.text();
-        nameplateBaseFontColorByImageId = parseCharaCardBaseFontColorMap(csvText);
+        const csvText = await fetchCsvTextWithRetry(CHARA_CARD_BASE_CSV_PATH, 'CharaCardBase.csv');
+        const parsed = parseCharaCardBaseFontColorMap(csvText);
+        if (!(parsed instanceof Map) || parsed.size <= 0) {
+          throw new Error('parsed empty font-color map');
+        }
+        nameplateBaseFontColorByImageId = parsed;
+        nameplateBaseFontColorRetryAt = 0;
+        return parsed;
       } catch (e) {
-        console.warn('[info-text-color] 加载 CharaCardBase.csv 失败:', e);
-        nameplateBaseFontColorByImageId = new Map();
+        console.warn('[info-text-color] failed to load CharaCardBase.csv:', e);
+        nameplateBaseFontColorRetryAt = Date.now() + INFO_TEXT_COLOR_CSV_COOLDOWN_MS;
+        return new Map();
+      } finally {
+        if (!nameplateBaseFontColorByImageId) {
+          nameplateBaseFontColorLoadPromise = null;
+        }
       }
-      return nameplateBaseFontColorByImageId;
     })();
   }
   return nameplateBaseFontColorLoadPromise;
@@ -268,18 +315,27 @@ async function ensureNameplateBaseFontColorMapLoaded() {
 
 async function ensureNameplateHeaderFontColorMapLoaded() {
   if (nameplateHeaderFontColorByTopImageId) return nameplateHeaderFontColorByTopImageId;
+  if (Date.now() < nameplateHeaderFontColorRetryAt) return new Map();
   if (!nameplateHeaderFontColorLoadPromise) {
     nameplateHeaderFontColorLoadPromise = (async () => {
       try {
-        const resp = await fetch(appPath(CHARA_CARD_HEADER_CSV_PATH));
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const csvText = await resp.text();
-        nameplateHeaderFontColorByTopImageId = parseCharaCardHeaderTopFontColorMap(csvText);
+        const csvText = await fetchCsvTextWithRetry(CHARA_CARD_HEADER_CSV_PATH, 'CharaCardHeader.csv');
+        const parsed = parseCharaCardHeaderTopFontColorMap(csvText);
+        if (!(parsed instanceof Map) || parsed.size <= 0) {
+          throw new Error('parsed empty font-color map');
+        }
+        nameplateHeaderFontColorByTopImageId = parsed;
+        nameplateHeaderFontColorRetryAt = 0;
+        return parsed;
       } catch (e) {
-        console.warn('[info-text-color] 加载 CharaCardHeader.csv 失败:', e);
-        nameplateHeaderFontColorByTopImageId = new Map();
+        console.warn('[info-text-color] failed to load CharaCardHeader.csv:', e);
+        nameplateHeaderFontColorRetryAt = Date.now() + INFO_TEXT_COLOR_CSV_COOLDOWN_MS;
+        return new Map();
+      } finally {
+        if (!nameplateHeaderFontColorByTopImageId) {
+          nameplateHeaderFontColorLoadPromise = null;
+        }
       }
-      return nameplateHeaderFontColorByTopImageId;
     })();
   }
   return nameplateHeaderFontColorLoadPromise;

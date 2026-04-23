@@ -96,15 +96,50 @@ function buildSmallCapsRuns(text) {
   return runs;
 }
 
+const textLayerFontLoadInflight = new Map();
+
 async function ensureTextLayerFontReady(layer) {
   if (!document.fonts || typeof document.fonts.load !== 'function') return;
   const normalized = normalizeTextLayerState(layer);
   const sample = textLayerLines(normalized.text).find(line => line.trim()) || 'A';
+  const fontSpec = buildTextLayerFontSpec(normalized);
   try {
-    await document.fonts.load(buildTextLayerFontSpec(normalized), sample);
+    if (typeof document.fonts.check === 'function' && document.fonts.check(fontSpec, sample)) {
+      return;
+    }
   } catch (_) {
-    // ignore font loading failures and let canvas fallback
+    // ignore check failures and continue with load
   }
+  const inflightKey = fontSpec;
+  if (textLayerFontLoadInflight.has(inflightKey)) {
+    await textLayerFontLoadInflight.get(inflightKey);
+    return;
+  }
+  const task = (async () => {
+    try {
+      await document.fonts.load(fontSpec, sample);
+    } catch (_) {
+      // ignore font loading failures and let canvas fallback
+    } finally {
+      textLayerFontLoadInflight.delete(inflightKey);
+    }
+  })();
+  textLayerFontLoadInflight.set(inflightKey, task);
+  await task;
+}
+
+async function ensureInfoTextLayerFontsReady(layers) {
+  if (!Array.isArray(layers) || !layers.length) return;
+  const tasks = [];
+  for (const layer of layers) {
+    if (!layer || layer.type === 'icon' || layer.type === 'special' || layer.type === 'fixed' || layer.type === 'bar48') {
+      continue;
+    }
+    if (!hasRenderableTextLayer(layer)) continue;
+    tasks.push(ensureTextLayerFontReady(layer));
+  }
+  if (!tasks.length) return;
+  await Promise.all(tasks);
 }
 
 const TEXT_LAYER_RENDER_EFFECT_STYLES = {
@@ -246,6 +281,13 @@ function drawTextLayerRowRenderEffect(ctx, normalized, layout, row, textLeft, te
   ctx.miterLimit = prevMiterLimit;
 }
 
+function resolveTextLayerRowTextLeft(row) {
+  const textLeft = Number(row && row.textLeft);
+  if (Number.isFinite(textLeft)) return textLeft;
+  const left = Number(row && row.left);
+  return Number.isFinite(left) ? left : 0;
+}
+
 let textLayerMeasureCanvas = null;
 function getTextLayerMeasureContext() {
   if (!textLayerMeasureCanvas) textLayerMeasureCanvas = document.createElement('canvas');
@@ -366,7 +408,7 @@ function computeTextLayerLayout(layer) {
     };
   });
   if (rows.length === 0) {
-    rows.push({ text: '', width: 0, left: xAnchor, top: yAnchor });
+    rows.push({ text: '', textWidth: 0, width: 0, textLeft: xAnchor, left: xAnchor, top: yAnchor });
   }
 
   let minX = rows[0].left;
@@ -385,7 +427,7 @@ function computeTextLayerLayout(layer) {
     let iconLeft;
     let iconTop;
     if (row.iconWorldTransrate) {
-      const tl = Number.isFinite(Number(row.textLeft)) ? Number(row.textLeft) : row.left;
+      const tl = resolveTextLayerRowTextLeft(row);
       const gap = Math.max(0, Number(row.iconGapPx) || 0);
       iconLeft = tl - gap - iconW;
       const bottomY = Number.isFinite(Number(row.iconFixedBottomY))
@@ -483,7 +525,7 @@ async function drawTextLayerViaSvgCalt(ctx, layout, normalized, options = {}, ef
   const textNodes = rows
     .filter(row => row && row.text)
     .map(row => {
-      const textLeft = Number.isFinite(Number(row.textLeft)) ? Number(row.textLeft) : Number(row.left) || 0;
+      const textLeft = resolveTextLayerRowTextLeft(row);
       const x = textLeft - layout.bounds.minX;
       const y = Number(row.top) - layout.bounds.minY;
       return `<text xml:space="preserve" x="${x}" y="${y}" text-anchor="start" dominant-baseline="text-before-edge">${escapeSvgTextContent(row.text)}</text>`;
@@ -570,8 +612,7 @@ async function drawTextLayer(ctx, layer, options = {}) {
       let iconX;
       let iconY;
       if (row.iconWorldTransrate) {
-        const tl =
-          (Number.isFinite(Number(row.textLeft)) ? Number(row.textLeft) : row.left) + offsetX;
+        const tl = resolveTextLayerRowTextLeft(row) + offsetX;
         iconX = tl - iconGapPx - iconWidthPx;
         const bottomY = Number.isFinite(Number(row.iconFixedBottomY))
           ? Number(row.iconFixedBottomY)
@@ -583,10 +624,7 @@ async function drawTextLayer(ctx, layer, options = {}) {
       }
       ctx.drawImage(inlineIconImg, iconX, iconY, iconWidthPx, iconHeightPx);
     }
-    const textLeft =
-      row.left +
-      offsetX +
-      (iconWidthPx > 0 && !row.iconWorldTransrate ? iconWidthPx + iconGapPx : 0);
+    const textLeft = resolveTextLayerRowTextLeft(row) + offsetX;
     const textTop = row.top + offsetY;
     if (textRenderEffectStyle) {
       drawTextLayerRowRenderEffect(
@@ -607,7 +645,7 @@ async function drawTextLayer(ctx, layer, options = {}) {
     for (const row of layout.rows) {
       if (!row.text || row.width <= 0) continue;
       const y = row.top + normalized.fontSize + layout.underlineOffset + offsetY + layout.underlineThickness / 2;
-      const x1 = (Number.isFinite(Number(row.textLeft)) ? Number(row.textLeft) : row.left) + offsetX;
+      const x1 = resolveTextLayerRowTextLeft(row) + offsetX;
       const textWidth = Number.isFinite(Number(row.textWidth)) ? Number(row.textWidth) : row.width;
       const x2 = x1 + Math.max(0, textWidth);
       ctx.beginPath();
@@ -937,6 +975,15 @@ async function drawInfoIconLayer(ctx, layer, options = {}) {
   };
 }
 
+function resolveTextLayerMinXOffsetFromAnchor(layer) {
+  const normalized = normalizeInfoLayer(layer, 'text');
+  const layout = computeTextLayerLayout(normalized);
+  const minX = Number(layout && layout.bounds ? layout.bounds.minX : NaN);
+  const anchorX = Math.round(normalized.x);
+  if (!Number.isFinite(minX) || !Number.isFinite(anchorX)) return 0;
+  return minX - anchorX;
+}
+
 function buildInfoRuntimeLayers(rawLayers = infoLayers) {
   const baseLayers = normalizeInfoLayers(rawLayers);
   const resolvedLayers = [];
@@ -961,7 +1008,9 @@ function buildInfoRuntimeLayers(rawLayers = infoLayers) {
         const sourceRight = Number(sourceLayout && sourceLayout.bounds ? sourceLayout.bounds.maxX : NaN);
         if (Number.isFinite(sourceRight)) {
           const gap = Number.isFinite(Number(normalized.followXGap)) ? Number(normalized.followXGap) : 0;
-          next = normalizeInfoLayer({ ...normalized, x: Math.round(sourceRight + gap) }, 'text');
+          const targetMinOffset = resolveTextLayerMinXOffsetFromAnchor(normalized);
+          const nextX = Math.round(sourceRight + gap - targetMinOffset);
+          next = normalizeInfoLayer({ ...normalized, x: nextX }, 'text');
         }
       }
     }
@@ -976,6 +1025,7 @@ async function drawInfoLayers(ctx, rawLayers = infoLayers, options = {}) {
   const trackHitRegions = opts.trackHitRegions === true;
   const regions = trackHitRegions ? [] : null;
   const layers = buildInfoRuntimeLayers(rawLayers);
+  await ensureInfoTextLayerFontsReady(layers);
   for (let idx = 0; idx < layers.length; idx += 1) {
     const layer = layers[idx];
     let drawResult = null;

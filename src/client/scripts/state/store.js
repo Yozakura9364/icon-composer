@@ -33,18 +33,86 @@ let nameplateHeaderFontColorLoadPromise = null;
 let infoPanelNumberAutoSelectBound = false;
 let infoLayerHitRegions = [];
 let hoveredInfoLayerIndex = -1;
+const INIT_API_RETRIES = 2;
+const INIT_API_RETRY_DELAY_MS = 220;
+
+function sleepMs(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function appendCacheBust(pathname, token) {
+  const src = String(pathname || '');
+  if (!src) return src;
+  return src.includes('?') ? `${src}&_=${token}` : `${src}?_=${token}`;
+}
+
+function buildInitApiErrorDetail(error) {
+  const err = error && typeof error === 'object' ? error : {};
+  const msg = [];
+  if (err.endpoint) msg.push(`接口: ${err.endpoint}`);
+  if (err.url) msg.push(`URL: ${err.url}`);
+  if (Number.isInteger(err.status)) {
+    msg.push(`HTTP: ${err.status}${err.statusText ? ` ${err.statusText}` : ''}`);
+  }
+  const reason = err.message || String(error || '未知错误');
+  msg.push(`原因: ${reason}`);
+  return msg.join('\n');
+}
+
+async function fetchJsonWithRetry(endpoint, options = {}) {
+  const retries = Number.isInteger(options.retries) ? Math.max(0, options.retries) : INIT_API_RETRIES;
+  let lastError = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const requestPath = appendCacheBust(endpoint, `${Date.now()}_${attempt}`);
+    const requestUrl = appPath(requestPath);
+    try {
+      const resp = await fetch(requestUrl, { cache: 'no-store' });
+      if (!resp.ok) {
+        const err = new Error(`请求失败`);
+        err.endpoint = endpoint;
+        err.url = requestUrl;
+        err.status = resp.status;
+        err.statusText = resp.statusText || '';
+        throw err;
+      }
+      const text = await resp.text();
+      if (!String(text || '').trim()) {
+        const err = new Error('响应体为空');
+        err.endpoint = endpoint;
+        err.url = requestUrl;
+        err.status = resp.status;
+        err.statusText = resp.statusText || '';
+        throw err;
+      }
+      try {
+        return JSON.parse(text);
+      } catch (_) {
+        const err = new Error('JSON 解析失败（可能是返回内容被截断）');
+        err.endpoint = endpoint;
+        err.url = requestUrl;
+        err.status = resp.status;
+        err.statusText = resp.statusText || '';
+        throw err;
+      }
+    } catch (e) {
+      lastError = e;
+      if (attempt < retries) {
+        await sleepMs(INIT_API_RETRY_DELAY_MS * (attempt + 1));
+      }
+    }
+  }
+  throw lastError || new Error('请求失败');
+}
 
 // ============================================================
 // 初始化
 // ============================================================
 async function init() {
   try {
-    const nc = `?_=${Date.now()}`;
-    const [filesResp, presetsResp] = await Promise.all([
-      fetch(appPath('/api/files' + nc)),
-      fetch(appPath('/api/presets' + nc)),
+    const [filesPayload, rawPresets] = await Promise.all([
+      fetchJsonWithRetry('/api/files', { retries: INIT_API_RETRIES }),
+      fetchJsonWithRetry('/api/presets', { retries: INIT_API_RETRIES }),
     ]);
-    const filesPayload = await filesResp.json();
     if (filesPayload._meta && typeof filesPayload._meta.imgBase === 'string') {
       ICON_IMG_BASE = filesPayload._meta.imgBase;
     } else {
@@ -71,14 +139,17 @@ async function init() {
       fileData.nameplate[INFO_ICON_LIMITED_CATEGORY] = fileData.nameplate[INFO_ICON_LEGACY_CATEGORY];
     }
     await ensureInfoActivityIconCategoryLoaded();
-    const rawPresets = await presetsResp.json();
     presets = {
       banner: Array.isArray(rawPresets.banner) ? rawPresets.banner : [],
       charcard: Array.isArray(rawPresets.charcard) ? rawPresets.charcard : [],
     };
   } catch(e) {
     applyThemeFromStorage();
-    alert('无法连接服务器！请先运行：node server.js\n\n' + e);
+    alert(
+      '初始化数据加载失败，请稍后重试。\n\n' +
+      buildInitApiErrorDetail(e) +
+      '\n\n请检查 /api/files 与 /api/presets 是否返回完整 JSON。'
+    );
     document.getElementById('loadingOverlay').classList.add('hidden');
     return;
   }

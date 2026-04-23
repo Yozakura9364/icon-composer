@@ -84,11 +84,11 @@ function normalizeInfoIconSubmenuOpenState() {
       next[materialKey] =
         typeof infoIconSubmenuOpenState[materialKey] === 'boolean'
           ? infoIconSubmenuOpenState[materialKey]
-          : true;
+          : false;
       next[propsKey] =
         typeof infoIconSubmenuOpenState[propsKey] === 'boolean'
           ? infoIconSubmenuOpenState[propsKey]
-          : true;
+          : false;
       continue;
     }
     if (layer.type === 'special') {
@@ -98,7 +98,7 @@ function normalizeInfoIconSubmenuOpenState() {
         next[key] =
           typeof infoIconSubmenuOpenState[key] === 'boolean'
             ? infoIconSubmenuOpenState[key]
-            : true;
+            : false;
       }
     }
   }
@@ -108,7 +108,7 @@ function normalizeInfoIconSubmenuOpenState() {
 function isInfoIconSubmenuOpen(index, section) {
   const key = infoIconSubmenuStateKey(index, section);
   if (typeof infoIconSubmenuOpenState[key] !== 'boolean') {
-    infoIconSubmenuOpenState[key] = true;
+    infoIconSubmenuOpenState[key] = false;
   }
   return infoIconSubmenuOpenState[key];
 }
@@ -289,6 +289,7 @@ function updateInfoTextLayerField(index, key, value) {
   if (!Number.isInteger(i) || i < 0 || i >= infoLayers.length) return;
   const layer = infoLayers[i];
   if (!layer || layer.type !== 'text') return;
+  if (key === 'align') return;
   infoLayers[i] = normalizeInfoLayer({ ...layer, [key]: value }, 'text');
   queueInfoLayerRender(false);
 }

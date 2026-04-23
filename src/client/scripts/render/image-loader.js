@@ -15,10 +15,23 @@ function isUiIconMaterialPath(p) {
   return /^ui\/icon\//i.test(String(p || ''));
 }
 
+function isLocalImgProxyBase(base) {
+  const b = String(base || '').trim();
+  return !!b && b.startsWith('/') && !b.startsWith('//');
+}
+
 function joinAssetBase(base, rel) {
   const b = String(base || '').replace(/\/$/, '');
   const r = String(rel || '').replace(/^\/+/, '');
   return b ? `${b}/${r}` : `/${r}`;
+}
+
+function resolveUiAssetSrc(relUiPath) {
+  const p = String(relUiPath || '').replace(/^\/+/, '');
+  const base = ICON_IMG_BASE || CDN;
+  if (isUiIconMaterialPath(p)) return joinAssetBase(base, p);
+  if (isLocalImgProxyBase(base)) return appPath('/' + p);
+  return joinAssetBase(base, p);
 }
 
 function iconImgSrcHd(relPath) {
@@ -27,11 +40,11 @@ function iconImgSrcHd(relPath) {
   if (isAbsoluteImgUrl(raw)) return raw;
   if (raw.startsWith('/')) {
     const p = raw.replace(/^\/+/, '');
-    if (isUiAssetPath(p)) return joinAssetBase(ICON_IMG_BASE || CDN, p);
+    if (isUiAssetPath(p)) return resolveUiAssetSrc(p);
     return appPath('/' + p);
   }
   const p = raw.replace(/^\.\//, '').replace(/^\/+/, '');
-  if (isUiAssetPath(p)) return joinAssetBase(ICON_IMG_BASE || CDN, p);
+  if (isUiAssetPath(p)) return resolveUiAssetSrc(p);
   return joinAssetBase(ICON_IMG_BASE || CDN, p);
 }
 

@@ -689,6 +689,7 @@ const server = http.createServer((req, res) => {
       metrics,
       iconRoot: ICON_ROOT,
       relUiIcon: REL_UI_ICON,
+      projectRoot: PROJECT_ROOT,
       mime: MIME,
       cacheImg: CACHE_IMG,
     })

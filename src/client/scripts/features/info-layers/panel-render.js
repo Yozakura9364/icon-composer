@@ -49,14 +49,6 @@ function buildInfoTextLayerCardHtml(layer, index) {
               ${buildTextLayerFontVariantOptionsHtml(normalized)}
             </select>
           </div>
-          <div class="text-layer-field">
-            <label>对齐</label>
-            <select class="text-layer-input info-select-like-preset" onchange="updateInfoTextLayerField(${index}, 'align', this.value)">
-              <option value="left" ${normalized.align === 'left' ? 'selected' : ''}>左对齐</option>
-              <option value="center" ${normalized.align === 'center' ? 'selected' : ''}>居中</option>
-              <option value="right" ${normalized.align === 'right' ? 'selected' : ''}>右对齐</option>
-            </select>
-          </div>
           <div class="text-layer-field text-layer-full">
             <label>样式</label>
             <div class="text-layer-style-bar" role="group" aria-label="文字样式">
@@ -72,6 +64,28 @@ function buildInfoTextLayerCardHtml(layer, index) {
           <div class="text-layer-field">
             <label>行高倍率</label>
             <input type="number" min="0.8" max="3" step="0.05" value="${normalized.lineHeight}" oninput="updateInfoTextLayerField(${index}, 'lineHeight', this.value)">
+          </div>
+          <div class="text-layer-field">
+            <label>水平缩放 (%)</label>
+            <input
+              type="number"
+              min="${TEXT_LAYER_SCALE_PERCENT_MIN}"
+              max="${TEXT_LAYER_SCALE_PERCENT_MAX}"
+              step="1"
+              value="${Math.round(Number(normalized.scaleXPercent) || 100)}"
+              oninput="updateInfoTextLayerField(${index}, 'scaleXPercent', this.value)"
+            >
+          </div>
+          <div class="text-layer-field">
+            <label>垂直缩放 (%)</label>
+            <input
+              type="number"
+              min="${TEXT_LAYER_SCALE_PERCENT_MIN}"
+              max="${TEXT_LAYER_SCALE_PERCENT_MAX}"
+              step="1"
+              value="${Math.round(Number(normalized.scaleYPercent) || 100)}"
+              oninput="updateInfoTextLayerField(${index}, 'scaleYPercent', this.value)"
+            >
           </div>
           <div class="text-layer-field">
             <label>X</label>
@@ -130,40 +144,42 @@ function buildInfoIconLayerCardHtml(layer, index) {
   const materialOpen = isInfoIconSubmenuOpen(index, 'material');
   const propsOpen = isInfoIconSubmenuOpen(index, 'props');
   const enableHtml = buildInfoLayerEnableHtml(normalized, index);
-  let materialThumbs = '';
-  for (const missingId of missingIds) {
-    const missingLabel = `[已失效] ${String(missingId)}`;
-    materialThumbs += `
-      <div class="thumb-item thumb-missing selected" title="${escapeHtml(missingLabel)}">
-        <div class="tnum">${escapeHtml(missingLabel)}</div>
-      </div>
-    `;
-  }
-  materialThumbs += materials
-    .map(item => {
-      const selected = selectedIdSet.has(String(item.id));
-      const previewSrc = iconImgSrcPreview(item.path);
-      const hdSrc = iconImgSrcHd(item.path);
-      const onclick = isActivity
-        ? `toggleInfoIconLayerMaterial(${index}, ${JSON.stringify(item.sourceCat)}, ${JSON.stringify(item.id)})`
-        : `setInfoIconLayerMaterial(${index}, ${JSON.stringify(item.sourceCat)}, ${JSON.stringify(item.id)})`;
-      const title = `[${item.sourceCat}] ${item.name}`;
-      return `
-        <div class="thumb-item ${selected ? 'selected' : ''}" title="${escapeHtml(title)}" onclick='${onclick}'>
-          <img
-            alt="${escapeHtml(item.name)}"
-            loading="lazy"
-            decoding="async"
-            src="${escapeHtml(previewSrc)}"
-            onerror="if(!this.dataset.fallbackTried){this.dataset.fallbackTried='1';this.src='${escapeHtml(hdSrc)}';return;} this.closest('.thumb-item') && this.closest('.thumb-item').classList.add('thumb-missing');"
-            onload="this.closest('.thumb-item') && this.closest('.thumb-item').classList.remove('thumb-missing');"
-          >
-          <div class="tnum">${escapeHtml(item.name)}</div>
+  let materialThumbs = materialOpen ? '' : '<div class="no-imgs">展开后加载素材</div>';
+  if (materialOpen) {
+    for (const missingId of missingIds) {
+      const missingLabel = `[已失效] ${String(missingId)}`;
+      materialThumbs += `
+        <div class="thumb-item thumb-missing selected" title="${escapeHtml(missingLabel)}">
+          <div class="tnum">${escapeHtml(missingLabel)}</div>
         </div>
       `;
-    })
-    .join('');
-  if (!materialThumbs) materialThumbs = '<div class="no-imgs">暂无素材</div>';
+    }
+    materialThumbs += materials
+      .map(item => {
+        const selected = selectedIdSet.has(String(item.id));
+        const previewSrc = iconImgSrcPreview(item.path);
+        const hdSrc = iconImgSrcHd(item.path);
+        const onclick = isActivity
+          ? `toggleInfoIconLayerMaterial(${index}, ${JSON.stringify(item.sourceCat)}, ${JSON.stringify(item.id)})`
+          : `setInfoIconLayerMaterial(${index}, ${JSON.stringify(item.sourceCat)}, ${JSON.stringify(item.id)})`;
+        const title = `[${item.sourceCat}] ${item.name}`;
+        return `
+          <div class="thumb-item ${selected ? 'selected' : ''}" title="${escapeHtml(title)}" onclick='${onclick}'>
+            <img
+              alt="${escapeHtml(item.name)}"
+              loading="lazy"
+              decoding="async"
+              src="${escapeHtml(previewSrc)}"
+              onerror="if(!this.dataset.fallbackTried){this.dataset.fallbackTried='1';this.src='${escapeHtml(hdSrc)}';return;} this.closest('.thumb-item') && this.closest('.thumb-item').classList.add('thumb-missing');"
+              onload="this.closest('.thumb-item') && this.closest('.thumb-item').classList.remove('thumb-missing');"
+            >
+            <div class="tnum">${escapeHtml(item.name)}</div>
+          </div>
+        `;
+      })
+      .join('');
+    if (!materialThumbs) materialThumbs = '<div class="no-imgs">暂无素材</div>';
+  }
   const materialHint = isActivity
     ? `<p class="info-fixed-note">已选 ${selectedIds.length}/${INFO_ACTIVITY_ICON_MAX_COUNT}。点击图标可取消，按选择顺序从左到右排列。</p>`
     : '';
@@ -329,17 +345,23 @@ function buildInfoSpecialLayerCardHtml(layer, index) {
   const maskVisibleHint = maskEnabledByBg
     ? '已选择背景：可选上色蒙版，黑白区域会分别填充下方两组 RGB 颜色。'
     : '先选择背景后，才会显示上色蒙版效果。';
-  const bgThumbs = buildInfoSpecialMaterialThumbsHtml(index, 'background', bgItems, normalized.bgItemId, {
-    allowNone: true,
-    noneLabel: '不使用背景',
-  });
-  const maskThumbs = buildInfoSpecialMaterialThumbsHtml(index, 'mask', maskItems, normalized.maskItemId, {
-    allowNone: true,
-    noneLabel: '不使用蒙版',
-  });
-  const symbolThumbs = buildInfoSpecialMaterialThumbsHtml(index, 'symbol', symbolItems, normalized.symbolItemId, {
-    allowNone: false,
-  });
+  const bgThumbs = bgOpen
+    ? buildInfoSpecialMaterialThumbsHtml(index, 'background', bgItems, normalized.bgItemId, {
+      allowNone: true,
+      noneLabel: '不使用背景',
+    })
+    : '<div class="no-imgs">展开后加载素材</div>';
+  const maskThumbs = maskOpen
+    ? buildInfoSpecialMaterialThumbsHtml(index, 'mask', maskItems, normalized.maskItemId, {
+      allowNone: true,
+      noneLabel: '不使用蒙版',
+    })
+    : '<div class="no-imgs">展开后加载素材</div>';
+  const symbolThumbs = symbolOpen
+    ? buildInfoSpecialMaterialThumbsHtml(index, 'symbol', symbolItems, normalized.symbolItemId, {
+      allowNone: false,
+    })
+    : '<div class="no-imgs">展开后加载素材</div>';
 
   return `
     <div class="info-layer-card ${isOpen ? 'open' : ''}" data-layer-index="${index}">
